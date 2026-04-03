@@ -1,0 +1,58 @@
+/* Topbar styles moved to Tailwind — Topbar.tsx */
+
+.topbar{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  padding: 14px 18px;
+  border-radius: 16px;
+
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+  backdrop-filter: blur(10px);
+}
+
+.topbar__left{
+  min-width: 0; /* para que el texto corte bien */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topbar__title{
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.topbar__subtitle{
+  font-size: 12px;
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70vw; /* evita romper layout en pantallas pequeñas */
+}
+
+.topbar__right{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Responsive: en móvil baja el subtitle */
+@media (max-width: 520px){
+  .topbar{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .topbar__right{
+    justify-content: flex-end;
+  }
+  .topbar__subtitle{
+    max-width: 100%;
+  }
+}

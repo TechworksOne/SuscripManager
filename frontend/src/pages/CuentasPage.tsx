@@ -1,0 +1,941 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { Cuenta } from "../api/cuentas";
+import {
+  actualizarCuenta,
+  crearCuenta,
+  getCuentas,
+  marcarPagado,
+  toggleCuentaActiva,
+} from "../api/cuentas";
+import type { Servicio } from "../api/servicios";
+import { getServicios } from "../api/servicios";
+import "../styles/cuentas.css";
+
+type ToastType = "success" | "error" | "info";
+type Toast = { id: string; type: ToastType; message: string };
+
+type PagoFilter = "all" | "due_today" | "overdue" | "ok" | "no_schedule";
+
+function norm(s: string) {
+  return (s || "").toLowerCase().trim();
+}
+
+function mask(s?: string | null) {
+  if (!s) return "—";
+  return "••••••••••";
+}
+
+function clampDigits4(value: string) {
+  return (value || "").replace(/\D/g, "").slice(0, 4);
+}
+
+function clampDay(value: string) {
+  const only = (value || "").replace(/\D/g, "").slice(0, 2);
+  if (!only) return "";
+  const n = Number(only);
+  if (!Number.isFinite(n)) return "";
+  if (n < 1) return "1";
+  if (n > 31) return "31";
+  return String(n);
+}
+
+function ymdToday() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function ymdKey() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}`;
+}
+
+function pagoHoyToastKey(cuentaId: number) {
+  return `pago_hoy_notified:${cuentaId}:${ymdKey()}`;
+}
+
+function compareYmd(a: string, b: string) {
+  // YYYY-MM-DD lexicográfico funciona perfecto
+  return a.localeCompare(b);
+}
+
+type ModalTab = "cuenta" | "credenciales" | "pago" | "notas";
+
+export default function CuentasPage() {
+  const [items, setItems] = useState<Cuenta[]>([]);
+  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [q, setQ] = useState("");
+  const [activoFilter, setActivoFilter] = useState<"1" | "0" | "all">("1");
+  const [pagoFilter, setPagoFilter] = useState<PagoFilter>("all");
+
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<Cuenta | null>(null);
+
+  const [servicioId, setServicioId] = useState<string>("");
+  const [correo, setCorreo] = useState("");
+  const [passwordCorreo, setPasswordCorreo] = useState("");
+  const [passwordApp, setPasswordApp] = useState("");
+  const [cupoTotal, setCupoTotal] = useState<string>("5");
+  const [notas, setNotas] = useState("");
+
+  // pago
+  const [tarjetaNombre, setTarjetaNombre] = useState("");
+  const [tarjetaLast4, setTarjetaLast4] = useState("");
+  const [diaPago, setDiaPago] = useState("");
+
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [payingId, setPayingId] = useState<number | null>(null);
+
+  const [revealCorreo, setRevealCorreo] = useState<Record<number, boolean>>({});
+  const [revealApp, setRevealApp] = useState<Record<number, boolean>>({});
+
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const pushToast = (type: ToastType, message: string) => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [{ id, type, message }, ...prev].slice(0, 4));
+    window.setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), 2400);
+  };
+
+  const todayYmd = ymdToday();
+
+  function getPagoStatus(c: Cuenta) {
+    const proximo = c.proximo_pago ? String(c.proximo_pago) : null;
+    const dia = c.dia_pago ? Number(c.dia_pago) : null;
+
+    if (!dia && !proximo) return { kind: "no_schedule" as const, label: "Sin calendario" };
+
+    if (proximo) {
+      const cmp = compareYmd(proximo, todayYmd);
+      if (cmp === 0) return { kind: "due_today" as const, label: "Pendiente hoy" };
+      if (cmp < 0) return { kind: "overdue" as const, label: "Atrasada" };
+      return { kind: "ok" as const, label: "Al día" };
+    }
+
+    const todayDay = new Date().getDate();
+    if (dia === todayDay) return { kind: "due_today" as const, label: "Pendiente hoy" };
+    return { kind: "ok" as const, label: "Al día" };
+  }
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      const [c, s] = await Promise.all([getCuentas(activoFilter), getServicios("1")]);
+      const cuentas = (c.items || []) as Cuenta[];
+
+      setItems(cuentas);
+      setServicios((s.items || []) as Servicio[]);
+
+      // ✅ Toast automático 1 vez por día por cuenta cuando toca pagar HOY o está atrasada
+      for (const x of cuentas) {
+        const activa = Number(x.activa ?? 1) === 1;
+        if (!activa) continue;
+
+        const st = getPagoStatus(x);
+        if (st.kind !== "due_today" && st.kind !== "overdue") continue;
+
+        const key = pagoHoyToastKey(x.id);
+        if (localStorage.getItem(key)) continue;
+
+        const servicio = x.nombre_servicio || `Servicio #${x.servicio_id}`;
+        const last4 = x.tarjeta_last4 ? `**** ${x.tarjeta_last4}` : "sin tarjeta";
+        pushToast("info", `Pago pendiente: ${servicio} (${last4})`);
+
+        localStorage.setItem(key, "1");
+      }
+    } catch (e: any) {
+      pushToast("error", e?.message || "No se pudo cargar cuentas");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activoFilter]);
+
+  const filtered = useMemo(() => {
+    const needle = norm(q);
+
+    let list = items;
+
+    if (pagoFilter !== "all") {
+      list = list.filter((c) => getPagoStatus(c).kind === pagoFilter);
+    }
+
+    if (needle) {
+      list = list.filter(
+        (x) => norm(x.correo).includes(needle) || norm(x.nombre_servicio).includes(needle)
+      );
+    }
+
+    const rank = (c: Cuenta) => {
+      const k = getPagoStatus(c).kind;
+      if (k === "due_today") return 0;
+      if (k === "overdue") return 1;
+      if (k === "ok") return 2;
+      return 3;
+    };
+
+    return [...list].sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+
+      const pa = a.proximo_pago ? String(a.proximo_pago) : "9999-12-31";
+      const pb = b.proximo_pago ? String(b.proximo_pago) : "9999-12-31";
+      const cmp = compareYmd(pa, pb);
+      if (cmp !== 0) return cmp;
+
+      return b.id - a.id;
+    });
+  }, [items, q, pagoFilter]);
+
+  const totalActivasVista = useMemo(
+    () => items.filter((x) => Number(x.activa ?? 1) === 1).length,
+    [items]
+  );
+  const totalInactivasVista = useMemo(
+    () => items.filter((x) => Number(x.activa ?? 1) === 0).length,
+    [items]
+  );
+
+  // ✅ KPI: cupos disponibles totales en la vista actual
+  const cuposDisponiblesVista = useMemo(() => {
+    return filtered.reduce((acc, c) => {
+      const total = Number(c.cupo_total ?? 0);
+      const ocupado = Number(c.cupo_ocupado ?? 0);
+      const disp = Math.max(0, total - ocupado);
+      return acc + disp;
+    }, 0);
+  }, [filtered]);
+
+  function resetForm() {
+    setServicioId("");
+    setCorreo("");
+    setPasswordCorreo("");
+    setPasswordApp("");
+    setCupoTotal("5");
+    setNotas("");
+
+    setTarjetaNombre("");
+    setTarjetaLast4("");
+    setDiaPago("");
+  }
+
+  function openCreate() {
+    setEditing(null);
+    resetForm();
+    setModalTab("cuenta");
+    setOpen(true);
+    window.setTimeout(() => scrollToTab("cuenta"), 0);
+  }
+
+  function openEdit(c: Cuenta) {
+    setEditing(c);
+
+    setServicioId(String(c.servicio_id ?? ""));
+    setCorreo(String(c.correo ?? ""));
+    setPasswordCorreo(String(c.password_correo ?? ""));
+    setPasswordApp(c.password_app ? String(c.password_app) : "");
+    setCupoTotal(String(c.cupo_total ?? 1));
+    setNotas(c.notas ? String(c.notas) : "");
+
+    setTarjetaNombre(c.tarjeta_nombre ? String(c.tarjeta_nombre) : "");
+    setTarjetaLast4(c.tarjeta_last4 ? String(c.tarjeta_last4) : "");
+    setDiaPago(c.dia_pago ? String(c.dia_pago) : "");
+
+    setModalTab("cuenta");
+    setOpen(true);
+    window.setTimeout(() => scrollToTab("cuenta"), 0);
+  }
+
+  async function copy(text: string, okMsg: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      pushToast("success", okMsg);
+    } catch {
+      pushToast("error", "No se pudo copiar (permiso del navegador)");
+    }
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (saving) return;
+
+    const sid = Number(servicioId);
+    const correoTrim = correo.trim();
+    const cupo = Number(cupoTotal);
+
+    if (!Number.isFinite(sid) || sid <= 0) return pushToast("error", "Seleccione un servicio");
+    if (correoTrim.length < 6 || !correoTrim.includes("@"))
+      return pushToast("error", "Correo inválido");
+    if ((passwordCorreo || "").trim().length < 2)
+      return pushToast("error", "Contraseña de correo requerida");
+    if (!Number.isFinite(cupo) || cupo < 1 || cupo > 50)
+      return pushToast("error", "Cupo inválido (1–50)");
+
+    const last4 = clampDigits4(tarjetaLast4);
+    const dayStr = clampDay(diaPago);
+    const day = dayStr ? Number(dayStr) : null;
+
+    if (tarjetaLast4.trim() && last4.length !== 4)
+      return pushToast("error", "Tarjeta: use exactamente 4 dígitos");
+    if (diaPago.trim() && (!day || day < 1 || day > 31))
+      return pushToast("error", "Día de pago inválido (1–31)");
+
+    setSaving(true);
+    try {
+      const payload = {
+        servicio_id: sid,
+        correo: correoTrim,
+        password_correo: passwordCorreo,
+        password_app: passwordApp.trim() ? passwordApp : null,
+        cupo_total: cupo,
+        notas: notas.trim() ? notas : null,
+
+        tarjeta_nombre: tarjetaNombre.trim() ? tarjetaNombre.trim() : null,
+        tarjeta_last4: last4 ? last4 : null,
+        dia_pago: day,
+      };
+
+      if (!editing) {
+        await crearCuenta(payload);
+        pushToast("success", "Cuenta creada");
+      } else {
+        await actualizarCuenta(editing.id, payload);
+        pushToast("success", "Cuenta actualizada");
+      }
+
+      setOpen(false);
+      await refresh();
+    } catch (err: any) {
+      pushToast("error", err?.message || "No fue posible guardar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onToggleActiva(c: Cuenta) {
+    if (togglingId === c.id) return;
+
+    const prev = Number(c.activa ?? 1) === 1;
+    const next = !prev;
+
+    setTogglingId(c.id);
+    setItems((cur) => cur.map((x) => (x.id === c.id ? { ...x, activa: next ? 1 : 0 } : x)));
+
+    try {
+      await toggleCuentaActiva(c.id, next);
+      pushToast("success", next ? "Activada" : "Desactivada");
+      if (activoFilter !== "all") await refresh();
+    } catch (err: any) {
+      setItems((cur) => cur.map((x) => (x.id === c.id ? { ...x, activa: prev ? 1 : 0 } : x)));
+      pushToast("error", err?.message || "No se pudo cambiar el estado");
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
+  async function onMarcarPagado(c: Cuenta) {
+    if (payingId === c.id) return;
+
+    const st = getPagoStatus(c);
+    const permitido = st.kind === "due_today" || st.kind === "overdue";
+    if (!permitido) {
+      pushToast("info", "Esta cuenta está al día. No requiere marcar pagado.");
+      return;
+    }
+
+    setPayingId(c.id);
+    try {
+      const r = await marcarPagado(c.id);
+      pushToast("success", `Pagado. Próximo: ${r.proximo_pago}`);
+      await refresh();
+    } catch (e: any) {
+      pushToast("error", e?.message || "No se pudo marcar pagado");
+    } finally {
+      setPayingId(null);
+    }
+  }
+
+  const kpiPendientes = useMemo(() => {
+    return items.filter((c) => {
+      const st = getPagoStatus(c);
+      return st.kind === "due_today" || st.kind === "overdue";
+    }).length;
+  }, [items]);
+
+  /* =========================
+     MODAL NAV (vertical)
+  ========================= */
+  const [modalTab, setModalTab] = useState<ModalTab>("cuenta");
+  const modalScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const secCuentaRef = useRef<HTMLDivElement | null>(null);
+  const secCredsRef = useRef<HTMLDivElement | null>(null);
+  const secPagoRef = useRef<HTMLDivElement | null>(null);
+  const secNotasRef = useRef<HTMLDivElement | null>(null);
+
+  function refForTab(t: ModalTab) {
+    if (t === "cuenta") return secCuentaRef;
+    if (t === "credenciales") return secCredsRef;
+    if (t === "pago") return secPagoRef;
+    return secNotasRef;
+  }
+
+  function scrollToTab(t: ModalTab) {
+    const el = refForTab(t).current;
+    const sc = modalScrollRef.current;
+    if (!el || !sc) return;
+    // scroll suave dentro del contenedor (no la ventana)
+    const top = el.offsetTop - 12;
+    sc.scrollTo({ top, behavior: "smooth" });
+  }
+
+  function goTab(t: ModalTab) {
+    setModalTab(t);
+    scrollToTab(t);
+  }
+
+  return (
+    <div className="page-shell cuentasPage">
+      {/* Toasts */}
+      <div className="toastStack" aria-live="polite" aria-relevant="additions">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast ${t.type}`}>
+            {t.message}
+          </div>
+        ))}
+      </div>
+
+      {/* Head */}
+      <div className="pageHead">
+        <div>
+          <h1 className="pageTitle">Cuentas</h1>
+          {/* ✅ mensaje corto para que el usuario entienda el negocio */}
+          <div className="pageHint">
+            * El cupo ocupado se calcula solo con clientes activos. Clientes desactivados no ocupan cupo.
+          </div>
+        </div>
+
+        <button className="btn primary" onClick={openCreate}>
+          + Nueva cuenta
+        </button>
+      </div>
+
+      {/* KPI */}
+      <div className="kpiRow">
+        <div className="kpi">
+          <div className="kpi-label">Cuentas (vista)</div>
+          <div className="kpi-value">{filtered.length}</div>
+          <div className="kpi-foot">
+            <span className="badge ok">Activas: {totalActivasVista}</span>
+            <span className="badge muted">Inactivas: {totalInactivasVista}</span>
+          </div>
+        </div>
+
+        <div className="kpi">
+          <div className="kpi-label">Pendientes</div>
+          <div className="kpi-value">{kpiPendientes}</div>
+          <div className="kpi-foot">
+            <span className="badge warn">Requieren acción</span>
+          </div>
+        </div>
+
+        {/* ✅ KPI nuevo */}
+        <div className="kpi">
+          <div className="kpi-label">Cupos libres (vista)</div>
+          <div className="kpi-value">{cuposDisponiblesVista}</div>
+          <div className="kpi-foot">
+            <span className="badge ok">Disponibles</span>
+            <span className="badge muted">Solo clientes activos</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tools */}
+      <div className="clientes-tools">
+        <select
+          className="input"
+          value={activoFilter}
+          onChange={(e) => setActivoFilter(e.target.value as any)}
+        >
+          <option value="1">Activas</option>
+          <option value="0">Inactivas</option>
+          <option value="all">Todas</option>
+        </select>
+
+        <select
+          className="input"
+          value={pagoFilter}
+          onChange={(e) => setPagoFilter(e.target.value as any)}
+        >
+          <option value="all">Pagos: Todos</option>
+          <option value="due_today">Pendientes hoy</option>
+          <option value="overdue">Atrasadas</option>
+          <option value="ok">Al día</option>
+          <option value="no_schedule">Sin calendario</option>
+        </select>
+
+        <input
+          className="input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar por correo o servicio…"
+        />
+      </div>
+
+      {/* Cards */}
+      <div className="cardsWrap">
+        {loading ? (
+          <div className="empty">
+            <div className="emptyTitle">Cargando…</div>
+            <div className="emptySub">Consultando backend.</div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="empty">
+            <div className="emptyTitle">No hay cuentas</div>
+            <div className="emptySub">Cree la primera cuenta (Netflix, Disney, etc.).</div>
+            <button className="btn primary" onClick={openCreate}>
+              Crear cuenta
+            </button>
+          </div>
+        ) : (
+          <div className="cardsGrid">
+            {filtered.map((c) => {
+              const isActive = Number(c.activa ?? 1) === 1;
+              const isToggling = togglingId === c.id;
+
+              const revC = !!revealCorreo[c.id];
+              const revA = !!revealApp[c.id];
+
+              const total = Number(c.cupo_total ?? 1);
+              const ocupado = Number(c.cupo_ocupado ?? 0);
+
+              // ✅ resiliencia por si algún dato viejo llega raro
+              const rawDisponibles = total - ocupado;
+              const disponibles = Math.max(0, rawDisponibles);
+              const overflow = rawDisponibles < 0;
+
+              const dia = c.dia_pago ? Number(c.dia_pago) : null;
+              const last4 = c.tarjeta_last4 ? String(c.tarjeta_last4) : "";
+              const tname = c.tarjeta_nombre ? String(c.tarjeta_nombre) : "";
+              const proximo = c.proximo_pago ? String(c.proximo_pago) : null;
+
+              const st = getPagoStatus(c);
+              const pendiente = st.kind === "due_today" || st.kind === "overdue";
+
+              return (
+                <div key={c.id} className={`cuentaCard ${isActive ? "isOn" : "isOff"}`}>
+                  <div className="cuentaCardHead">
+                    <div className="ccTitle">
+                      <div className="ccService">
+                        {c.nombre_servicio || `Servicio #${c.servicio_id}`}
+                      </div>
+                      <div className="ccMeta">
+                        <span className="ccId">ID: {c.id}</span>
+
+                        <span className={`ccPayHint ${pendiente ? "warn" : ""}`}>
+                          {st.label}
+                          {proximo ? ` • Próximo: ${proximo}` : dia ? ` • Día: ${dia}` : ""}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="ccRight">
+                      <span className={`statusBadge ${isActive ? "on" : "off"}`}>
+                        {isActive ? "ACTIVA" : "INACTIVA"}
+                      </span>
+
+                      <label
+                        className="switch switch--compact"
+                        title={isActive ? "Desactivar" : "Activar"}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isActive}
+                          disabled={isToggling}
+                          onChange={() => onToggleActiva(c)}
+                        />
+                        <span className="slider" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="cuentaCardBody">
+                    <div className="ccRow">
+                      <div className="ccLabel">Correo</div>
+                      <div className="ccValue">
+                        <span className="mono">{c.correo}</span>
+                      </div>
+                    </div>
+
+                    <div className="ccRow">
+                      <div className="ccLabel">Notas</div>
+                      <div className="ccValue">{c.notas ? c.notas : "—"}</div>
+                    </div>
+
+                    <div className="ccCreds">
+                      <div className="ccCred">
+                        <div className="ccCredLeft">
+                          <div className="ccCredLabel">Pass correo</div>
+                          <div className="ccCredValue mono">
+                            {revC ? String(c.password_correo || "—") : mask(c.password_correo)}
+                          </div>
+                        </div>
+                        <div className="ccCredBtns">
+                          <button
+                            className="btn mini ghost"
+                            type="button"
+                            onClick={() => setRevealCorreo((p) => ({ ...p, [c.id]: !p[c.id] }))}
+                          >
+                            {revC ? "Ocultar" : "Ver"}
+                          </button>
+                          <button
+                            className="btn mini ghost"
+                            type="button"
+                            onClick={() =>
+                              copy(String(c.password_correo || ""), "Contraseña correo copiada")
+                            }
+                            disabled={!c.password_correo}
+                          >
+                            Copiar
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="ccCred">
+                        <div className="ccCredLeft">
+                          <div className="ccCredLabel">Pass cuenta</div>
+                          <div className="ccCredValue mono">
+                            {revA ? String(c.password_app || "—") : mask(c.password_app)}
+                          </div>
+                        </div>
+                        <div className="ccCredBtns">
+                          <button
+                            className="btn mini ghost"
+                            type="button"
+                            onClick={() => setRevealApp((p) => ({ ...p, [c.id]: !p[c.id] }))}
+                            disabled={!c.password_app}
+                          >
+                            {revA ? "Ocultar" : "Ver"}
+                          </button>
+                          <button
+                            className="btn mini ghost"
+                            type="button"
+                            onClick={() =>
+                              copy(String(c.password_app || ""), "Contraseña cuenta copiada")
+                            }
+                            disabled={!c.password_app}
+                          >
+                            Copiar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="ccGrid2">
+                      <div className="ccMiniCard">
+                        <div className="ccMiniLabel">Cupos</div>
+                        <div className="ccMiniValue">
+                          {ocupado}/{total}
+                        </div>
+                        <div className="ccMiniSub">
+                          Disponibles: {disponibles}{" "}
+                          {overflow ? <span className="badge warn">Revisar</span> : null}
+                        </div>
+                        <div className="ccMiniSub">
+                          <span className="badge muted">Ocupado = clientes activos</span>
+                        </div>
+                      </div>
+
+                      <div className="ccMiniCard">
+                        <div className="ccMiniLabel">Pago</div>
+                        <div className="ccMiniValue">{dia ? `Día ${dia}` : "—"}</div>
+                        <div className="ccMiniSub">
+                          {tname ? `${tname}` : "Tarjeta: —"} {last4 ? `• **** ${last4}` : ""}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="cuentaCardFoot cuentaCardFoot--two">
+                    <button className="btn ghost" type="button" onClick={() => openEdit(c)}>
+                      Editar
+                    </button>
+
+                    <button
+                      className="btn primary"
+                      type="button"
+                      onClick={() => onMarcarPagado(c)}
+                      disabled={payingId === c.id || !pendiente}
+                      title={
+                        !pendiente
+                          ? "Solo se puede marcar pagado cuando está pendiente"
+                          : "Marcar como pagado"
+                      }
+                    >
+                      {payingId === c.id ? "Actualizando…" : "Marcar pagado"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Modal */}
+      {open && (
+        <div className="modalBack" role="dialog" aria-modal="true">
+          <div className="modal modal--wide modal--nav">
+            <div className="modalHead">
+              <div>
+                <div className="modalTitle">{editing ? "Editar cuenta" : "Nueva cuenta"}</div>
+                <div className="modalSub">Servicio, credenciales, cupos y datos de pago.</div>
+              </div>
+
+              <button
+                className="iconClose"
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={onSubmit}>
+              <div className="modalSplit">
+                {/* NAV */}
+                <aside className="modalNav" aria-label="Navegación de secciones">
+                  <button
+                    type="button"
+                    className={`modalNavItem ${modalTab === "cuenta" ? "active" : ""}`}
+                    onClick={() => goTab("cuenta")}
+                  >
+                    <span className="mniTitle">Cuenta</span>
+                    <span className="mniSub">Servicio, cupos, correo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`modalNavItem ${modalTab === "credenciales" ? "active" : ""}`}
+                    onClick={() => goTab("credenciales")}
+                  >
+                    <span className="mniTitle">Credenciales</span>
+                    <span className="mniSub">Contraseñas</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`modalNavItem ${modalTab === "pago" ? "active" : ""}`}
+                    onClick={() => goTab("pago")}
+                  >
+                    <span className="mniTitle">Pago</span>
+                    <span className="mniSub">Tarjeta, día de pago</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`modalNavItem ${modalTab === "notas" ? "active" : ""}`}
+                    onClick={() => goTab("notas")}
+                  >
+                    <span className="mniTitle">Notas</span>
+                    <span className="mniSub">Detalle interno</span>
+                  </button>
+                </aside>
+
+                {/* CONTENT */}
+                <div className="modalContent" ref={modalScrollRef}>
+                  <div className="modalBody">
+                    {/* SECCIÓN: CUENTA */}
+                    <div className="modalSection" ref={secCuentaRef}>
+                      <div className="sectionHead">
+                        <div className="sectionTitle">Cuenta</div>
+                        <div className="sectionHint">Servicio, cupos y correo de acceso.</div>
+                      </div>
+
+                      <div className="grid2">
+                        <div className="field">
+                          <div className="label">Servicio</div>
+                          <select
+                            className="input"
+                            value={servicioId}
+                            onChange={(e) => setServicioId(e.target.value)}
+                            required
+                          >
+                            <option value="">Seleccione…</option>
+                            {servicios.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.nombre_servicio}
+                              </option>
+                            ))}
+                          </select>
+                          {servicios.length === 0 && (
+                            <div className="hint">No hay servicios activos. Cree servicios primero.</div>
+                          )}
+                        </div>
+
+                        <div className="field">
+                          <div className="label">Cupo</div>
+                          <input
+                            className="input"
+                            value={cupoTotal}
+                            onChange={(e) =>
+                              setCupoTotal(e.target.value.replace(/\D/g, "").slice(0, 2))
+                            }
+                            inputMode="numeric"
+                            placeholder="5"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="field">
+                        <div className="label">Correo</div>
+                        <input
+                          className="input"
+                          value={correo}
+                          onChange={(e) => setCorreo(e.target.value)}
+                          placeholder="email@mail.com"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* SECCIÓN: CREDENCIALES */}
+                    <div className="modalSection" ref={secCredsRef}>
+                      <div className="sectionHead">
+                        <div className="sectionTitle">Credenciales</div>
+                        <div className="sectionHint">Acceso a correo y cuenta/app.</div>
+                      </div>
+
+                      <div className="grid2">
+                        <div className="field">
+                          <div className="label">Contraseña correo</div>
+                          <input
+                            className="input"
+                            value={passwordCorreo}
+                            onChange={(e) => setPasswordCorreo(e.target.value)}
+                            placeholder="Escriba aquí…"
+                            required
+                          />
+                        </div>
+
+                        <div className="field">
+                          <div className="label">Contraseña cuenta</div>
+                          <input
+                            className="input"
+                            value={passwordApp}
+                            onChange={(e) => setPasswordApp(e.target.value)}
+                            placeholder="Opcional"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SECCIÓN: PAGO */}
+                    <div className="modalSection" ref={secPagoRef}>
+                      <div className="sectionHead">
+                        <div className="sectionTitle">Pago</div>
+                        <div className="sectionHint">Datos internos para control de cobro.</div>
+                      </div>
+
+                      <div className="grid2">
+                        <div className="field">
+                          <div className="label">Nombre de tarjeta</div>
+                          <input
+                            className="input"
+                            value={tarjetaNombre}
+                            onChange={(e) => setTarjetaNombre(e.target.value)}
+                            placeholder="Ej: Visa BI / Master Banrural"
+                          />
+                          <div className="hint">Etiqueta interna. No afecta cobros.</div>
+                        </div>
+
+                        <div className="field">
+                          <div className="label">Tarjeta (últimos 4 dígitos)</div>
+                          <input
+                            className="input"
+                            value={tarjetaLast4}
+                            onChange={(e) => setTarjetaLast4(clampDigits4(e.target.value))}
+                            inputMode="numeric"
+                            placeholder="1234"
+                            maxLength={4}
+                          />
+                          <div className="hint">Solo guardamos 4 dígitos.</div>
+                        </div>
+                      </div>
+
+                      <div className="grid2">
+                        <div className="field">
+                          <div className="label">Día de pago (1–31)</div>
+                          <input
+                            className="input"
+                            value={diaPago}
+                            onChange={(e) => setDiaPago(clampDay(e.target.value))}
+                            inputMode="numeric"
+                            placeholder="15"
+                            maxLength={2}
+                          />
+                          <div className="hint">Esto genera el próximo pago automáticamente.</div>
+                        </div>
+
+                        <div className="field">
+                          <div className="label">Notas</div>
+                          <input
+                            className="input"
+                            value={notas}
+                            onChange={(e) => setNotas(e.target.value)}
+                            placeholder="Ej: Cuenta principal / miembro extra / etc."
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SECCIÓN: NOTAS */}
+                    <div className="modalSection" ref={secNotasRef}>
+                      <div className="sectionHead">
+                        <div className="sectionTitle">Notas (detalle)</div>
+                        <div className="sectionHint">Información adicional para operaciones.</div>
+                      </div>
+
+                      <div className="field">
+                        <textarea
+                          className="input"
+                          rows={4}
+                          value={notas}
+                          onChange={(e) => setNotas(e.target.value)}
+                          placeholder="Información adicional…"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modalFoot">
+                <button className="btn ghost" type="button" onClick={() => setOpen(false)}>
+                  Cancelar
+                </button>
+                <button className="btn primary" type="submit" disabled={saving}>
+                  {saving ? "Guardando…" : editing ? "Guardar cambios" : "Crear cuenta"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

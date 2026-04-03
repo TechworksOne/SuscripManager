@@ -1,0 +1,129 @@
+/* ===============================
+   Historial Cobros Page
+   Scope: .historialCobrosPage
+=============================== */
+.historialCobrosPage { color-scheme: dark; }
+
+/* Toasts */
+.historialCobrosPage .toastStack{
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 9999;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.historialCobrosPage .toast{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(10,16,28,0.95);
+  color: rgba(255,255,255,0.92);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+  font-size: 13px;
+}
+.historialCobrosPage .toast.success{ border-color: rgba(16,185,129,0.35); }
+.historialCobrosPage .toast.error{ border-color: rgba(239,68,68,0.35); }
+.historialCobrosPage .toast.info{ border-color: rgba(59,130,246,0.35); }
+
+/* Head */
+.historialCobrosPage .pageHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:12px;
+  margin-bottom: 12px;
+}
+.historialCobrosPage .pageTitle{
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.2px;
+}
+.historialCobrosPage .pageSub{
+  margin: 6px 0 0;
+  color: rgba(255,255,255,0.65);
+  font-size: 13px;
+}
+
+/* Tools */
+.historialCobrosPage .tools{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin: 12px 0;
+}
+.historialCobrosPage .input{
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  outline: none;
+}
+.historialCobrosPage .btn{
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  cursor:pointer;
+}
+.historialCobrosPage .btn.ghost:hover{
+  background: rgba(255,255,255,0.10);
+}
+
+/* Table */
+.historialCobrosPage .tableWrap{
+  margin-top: 10px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.03);
+}
+.historialCobrosPage .table{
+  width:100%;
+  border-collapse: collapse;
+}
+.historialCobrosPage .table th,
+.historialCobrosPage .table td{
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  font-size: 13px;
+  vertical-align: top;
+}
+.historialCobrosPage .table th{
+  font-size: 12px;
+  color: rgba(255,255,255,0.70);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.historialCobrosPage .table tr:last-child td{
+  border-bottom: 0;
+}
+
+/* Empty states */
+.historialCobrosPage .empty{
+  padding: 18px;
+}
+.historialCobrosPage .emptyTitle{
+  font-weight: 700;
+}
+.historialCobrosPage .emptySub{
+  color: rgba(255,255,255,0.65);
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+/* Badge */
+.historialCobrosPage .badge{
+  display:inline-flex;
+  align-items:center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  font-size: 12px;
+}

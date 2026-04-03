@@ -1,0 +1,39 @@
+﻿/*
+  sidebar.css — Solo reglas de acento por item.
+  Layout, spacing y estructura → Tailwind (Sidebar.tsx)
+*/
+
+/* ─── Base color de nav items ─── */
+.sbi {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+/* ─── Hover: fondo suave + acento ─── */
+.sbi:hover {
+  background: color-mix(in srgb, var(--accent, #6366f1) 7%, transparent);
+  color: var(--accent, rgba(255, 255, 255, 0.85));
+  border-color: color-mix(in srgb, var(--accent, #6366f1) 18%, transparent) !important;
+}
+
+/* ─── Active: fondo más marcado + glow ─── */
+.sbi.active {
+  background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
+  color: var(--accent, #fff);
+  border-color: color-mix(in srgb, var(--accent, #6366f1) 22%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 2px 12px color-mix(in srgb, var(--accent, #6366f1) 18%, transparent);
+}
+
+/* ─── Icon glow en hover y active ─── */
+.sbi-icon {
+  transition: filter 0.15s ease;
+}
+
+.sbi:hover .sbi-icon {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent, #6366f1) 55%, transparent));
+}
+
+.sbi.active .sbi-icon {
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent, #6366f1) 80%, transparent));
+}

@@ -1,0 +1,172 @@
+:root{
+  --sidebar-w: 260px;
+  --sidebar-w-collapsed: 68px;
+  --top-gap: 14px;
+}
+
+/* base */
+.app{
+  min-height: 100vh;
+  position: relative;
+}
+
+/* glow opcional */
+.bg{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.main{
+  position: relative;
+  /* sin z-index: así los position:fixed dentro (modales) compiten al nivel raíz
+     y su z-index:80 supera al sidebarShell z-30 */
+
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  transition: margin-left 0.22s ease;
+}
+
+.topbarSticky{
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding: var(--top-gap) var(--top-gap) 0;
+  isolation: isolate;
+}
+
+/* fila que contiene (hamburguesa + topbar) */
+.topbarRow{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.topbarGrow{
+  flex: 1;
+  min-width: 0;
+}
+
+/* Único lugar con scroll */
+.content{
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  padding: var(--top-gap);
+}
+
+/* ============ SIDEBAR ============ */
+
+/* wrapper: en desktop es fixed y ocupa full height */
+.sidebarShell{
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+
+  width: var(--sidebar-w);
+  height: 100vh;
+  z-index: 30;
+
+  overflow: hidden;
+  transition: width 0.22s ease;
+}
+
+/* sidebar colapsada en desktop */
+.app.sidebarCollapsed .sidebarShell{
+  width: var(--sidebar-w-collapsed);
+}
+.app.sidebarCollapsed .main{
+  margin-left: var(--sidebar-w-collapsed);
+}
+
+/* ============ MENU BUTTON (hamburguesa) ============ */
+.menuBtn{
+  display: none; /* desktop: oculto */
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.menuBtn span{
+  display: block;
+  height: 2px;
+  width: 18px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 999px;
+}
+
+/* overlay: por defecto oculto */
+.menuOverlay{
+  display: none;
+}
+
+/* ============ RESPONSIVE (móvil) ============ */
+@media (max-width: 900px){
+  :root{ --sidebar-w: 280px; }
+
+  /* main ya no deja espacio fijo */
+  .main{
+    margin-left: 0;
+  }
+
+  /* botón hamburguesa aparece */
+  .menuBtn{
+    display: inline-flex;
+  }
+
+  /* sidebar se vuelve drawer */
+  .sidebarShell{
+    width: var(--sidebar-w);
+    transform: translateX(-102%);
+    transition: transform .18s ease;
+    box-shadow: 20px 0 80px rgba(0,0,0,.55);
+  }
+
+  /* overlay */
+  .menuOverlay{
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+
+    background: rgba(0,0,0,0.45);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease;
+  }
+
+  /* cuando está abierto */
+  .app.menuOpen .sidebarShell{
+    transform: translateX(0);
+  }
+  .app.menuOpen .menuOverlay{
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* ultra pequeño: reduce padding */
+@media (max-width: 480px){
+  :root{ --top-gap: 10px; }
+  .content{ padding: 10px; }
+}

@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* =========================
+   UNIVERSAL (infra only)
+   - Tokens
+   - Reset
+   - Utilities neutras
+========================= */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:root{
+  /* Design tokens */
+  --bg0:#070a12;
+  --bg1:#0b1220;
+
+  --text:rgba(255,255,255,.92);
+  --muted:rgba(255,255,255,.70);
+
+  --card:rgba(255,255,255,.06);
+  --stroke:rgba(255,255,255,.14);
+
+  --radius:22px;
+  --radius2:14px;
+
+  --shadow:0 26px 70px rgba(0,0,0,.6);
+  --ring:0 0 0 3px rgba(99,102,241,.28);
+
+  /* opcional: z-index scale */
+  --z-toast: 9999;
+  --z-modal: 1000;
+}
+
+/* Reset + base typography */
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
+html, body{ height:100%; }
+
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  color:var(--text);
+  background: var(--bg0); /* universal neutro */
+}
+
+/* Media defaults */
+img, svg, video{ max-width:100%; height:auto; display:block; }
+
+/* Forms: sin estilos de componentes */
+button, input, select, textarea{
+  font: inherit;
+  color: inherit;
+}
+
+/* Focus visible (accesible) */
+:focus-visible{
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: 10px;
+}
+
+/* Utilities (prefijo u- para no chocar) */
+.u-hidden{ display:none !important; }
+.u-flex{ display:flex !important; }
+.u-center{ display:grid !important; place-items:center !important; }
+.u-gap-10{ gap:10px !important; }
+.u-mt-10{ margin-top:10px !important; }
+
+/* Scrollbars (si quiere mantenerlo global, ok) */
+*{
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.22) rgba(255,255,255,.06);
+}
+*::-webkit-scrollbar{ width:10px; height:10px; }
+*::-webkit-scrollbar-track{ background: rgba(255,255,255,.05); border-radius:999px; }
+*::-webkit-scrollbar-thumb{
+  border-radius:999px;
+  background: rgba(255,255,255,.22);
+  border: 2px solid rgba(8,12,20,.65);
+}
+*::-webkit-scrollbar-thumb:hover{ background: rgba(255,255,255,.30); }
+.app-content{
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
+  color: rgba(255,255,255,.92);
+}

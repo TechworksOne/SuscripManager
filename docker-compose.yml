@@ -1,0 +1,46 @@
+name: manejador-suscripcion
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: suscrip_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: suscrip_manager
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d
+
+  backend:
+    build: ./backend
+    container_name: suscrip_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: appuser
+      DB_PASSWORD: apppass
+      DB_NAME: suscrip_manager
+      JWT_SECRET: "SuscripManager_S3cr3t_2025_ChangeMe"
+    depends_on:
+      - db
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./backend/.env
+  frontend:
+    build: ./frontend
+    container_name: suscrip_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

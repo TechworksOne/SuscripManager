@@ -1,0 +1,323 @@
+/* =========================
+   LOGIN (aislado)
+========================= */
+
+:root{
+  --bg0: #070b14;
+  --glass: rgba(255,255,255,.06);
+  --glass2: rgba(255,255,255,.08);
+  --stroke: rgba(255,255,255,.10);
+  --text: rgba(255,255,255,.92);
+  --muted: rgba(255,255,255,.62);
+  --muted2: rgba(255,255,255,.48);
+  --danger: #ff6b6b;
+
+  --radius: 18px;
+  --shadow: 0 20px 60px rgba(0,0,0,.45);
+
+  --logo-box: 56px;
+  --logo-zoom: 1.85; /* 👈 igual que sidebar: mata el “aire” del PNG */
+}
+
+.auth-shell{
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  color: var(--text);
+
+  background:
+    radial-gradient(900px 600px at 20% 20%, rgba(99,102,241,.28), transparent 60%),
+    radial-gradient(900px 600px at 80% 30%, rgba(34,197,94,.18), transparent 60%),
+    radial-gradient(900px 600px at 50% 90%, rgba(14,165,233,.14), transparent 55%),
+    linear-gradient(180deg, #040610, var(--bg0));
+}
+
+.auth-layout{
+  width: min(1080px, 100%);
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr;
+  gap: 18px;
+  align-items: stretch;
+}
+
+/* -------- Promo (izquierda) -------- */
+.promo{
+  border-radius: var(--radius);
+  background: rgba(0,0,0,.20);
+  border: 1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.promo-inner{
+  padding: 26px;
+}
+
+.promo-badge{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.75);
+  font-size: 12px;
+}
+
+.promo-title{
+  margin: 14px 0 10px;
+  font-size: 32px;
+  line-height: 1.08;
+  letter-spacing: .2px;
+}
+
+.promo-sub{
+  margin: 0 0 18px;
+  color: var(--muted);
+  max-width: 56ch;
+}
+
+.promo-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.promo-card{
+  padding: 12px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.promo-card b{
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.promo-card span{
+  display: block;
+  font-size: 12px;
+  color: var(--muted2);
+  line-height: 1.35;
+}
+
+/* -------- Card login (derecha) -------- */
+.auth-card{
+  border-radius: var(--radius);
+  background: rgba(0,0,0,.26);
+  border: 1px solid rgba(255,255,255,.10);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.auth-head{
+  padding: 18px 18px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.brand{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ✅ Logo real, sin “caja” y sin padding extra */
+.brandLogo{
+  width: var(--logo-box);
+  height: var(--logo-box);
+  display: block;
+
+  object-fit: cover;
+  transform: scale(var(--logo-zoom));
+  transform-origin: center;
+
+  border-radius: 14px;   /* si quiere totalmente “tal cual”, ponga 0 */
+  overflow: hidden;
+}
+
+.brand h1{
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: .2px;
+}
+
+.brand p{
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.auth-body{
+  padding: 16px 18px 18px;
+}
+
+.field{
+  margin-top: 12px;
+}
+
+.label{
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.input-wrap{
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+}
+
+.input{
+  width: 100%;
+  padding: 12px 12px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.input::placeholder{
+  color: rgba(255,255,255,.40);
+}
+
+.icon-btn{
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,.70);
+  padding: 10px 10px;
+  cursor: pointer;
+}
+
+.icon-btn:hover{
+  color: rgba(255,255,255,.95);
+}
+
+.row{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.helper{
+  font-size: 12px;
+  color: rgba(255,255,255,.55);
+}
+
+.error{
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,107,107,.35);
+  background: rgba(255,107,107,.12);
+  color: #ffd7d7;
+  font-size: 13px;
+}
+
+.btn{
+  margin-top: 14px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 14px;
+  cursor: pointer;
+
+  color: #fff;
+  background: linear-gradient(135deg, rgba(99,102,241,.55), rgba(34,197,94,.40));
+  box-shadow: 0 14px 30px rgba(0,0,0,.35);
+  transition: transform .12s ease, filter .12s ease, opacity .12s ease;
+}
+
+.btn:hover{
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.btn:disabled{
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.spinner{
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: rgba(255,255,255,.95);
+  margin-right: 10px;
+  vertical-align: -2px;
+  animation: spin .8s linear infinite;
+}
+
+@keyframes spin{
+  to{ transform: rotate(360deg); }
+}
+
+/* -------- Responsive -------- */
+@media (max-width: 980px){
+  .auth-layout{
+    grid-template-columns: 1fr;
+  }
+  .promo{
+    display: none; /* solo desktop */
+  }
+}
+
+@media (max-width: 420px){
+  .auth-shell{ padding: 14px; }
+  .promo-title{ font-size: 26px; }
+}
+/* ===== Sidebar Footer (Logout) ===== */
+.sidebarFooter {
+  margin-top: auto;
+  padding: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.logoutBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 12px 12px;
+  border-radius: 12px;
+
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.logoutBtn:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.logoutBtn:active {
+  transform: translateY(0px);
+}
+
+.logoutIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.12);
+}

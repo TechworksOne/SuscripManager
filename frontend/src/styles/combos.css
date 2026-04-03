@@ -1,0 +1,211 @@
+/* ===============================
+   Combos Page (sin combinaciones)
+   Scope: .combosPage
+=============================== */
+.combosPage { color-scheme: dark; }
+
+/* Toasts */
+.combosPage .toastStack{
+  position: fixed; top: 14px; right: 14px; z-index: 9999;
+  display:flex; flex-direction:column; gap:10px;
+}
+.combosPage .toast{
+  padding: 10px 12px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(10,16,28,0.95);
+  color: rgba(255,255,255,0.92);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+  font-size: 13px;
+  backdrop-filter: blur(10px);
+}
+.combosPage .toast.success{ border-color: rgba(16,185,129,0.35); }
+.combosPage .toast.error{ border-color: rgba(239,68,68,0.35); }
+.combosPage .toast.info{ border-color: rgba(59,130,246,0.35); }
+
+/* Header */
+.combosPage .headRow{
+  display:flex; align-items:flex-end; justify-content:space-between;
+  gap:12px; margin-bottom: 12px;
+}
+.combosPage .pageTitle{
+  margin:0; font-size: 22px; letter-spacing:.2px; font-weight: 900;
+}
+.combosPage .pageSub{
+  margin: 6px 0 0; color: rgba(255,255,255,0.65); font-size: 13px;
+}
+
+/* Steps pills */
+.combosPage .steps{ display:flex; gap:10px; flex-wrap:wrap; margin: 10px 0 0; }
+.combosPage .stepPill{
+  display:inline-flex; align-items:center; gap:8px;
+  padding: 8px 10px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  font-size: 12px; color: rgba(255,255,255,0.88);
+}
+.combosPage .stepPill.on{
+  border-color: rgba(99,102,241,0.35);
+  background: rgba(99,102,241,0.18);
+}
+
+/* Main layout */
+.combosPage .shell{
+  display:grid; grid-template-columns: 1.6fr 0.8fr;
+  gap: 14px; align-items: start;
+}
+@media (max-width: 1050px){
+  .combosPage .shell{ grid-template-columns: 1fr; }
+}
+
+/* Panels */
+.combosPage .panel{
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.045);
+  overflow:hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.30);
+}
+.combosPage .panelHead{
+  padding: 12px 14px;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.combosPage .panelTitle{ font-weight: 900; font-size: 14px; }
+.combosPage .panelSub{
+  font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 4px;
+}
+.combosPage .content{ padding: 14px; }
+
+/* Cards inside */
+.combosPage .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 750px){
+  .combosPage .grid2{ grid-template-columns: 1fr; }
+}
+.combosPage .card{
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.03);
+  padding: 12px;
+}
+
+/* Step 1 options */
+.combosPage .optRow{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 900px){
+  .combosPage .optRow{ grid-template-columns: 1fr; }
+}
+.combosPage .opt{
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  padding: 12px;
+  cursor:pointer;
+  text-align:left;
+  min-height: 122px;
+  display:flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform .12s ease, background .12s ease, border-color .12s ease;
+}
+.combosPage .opt:hover{ background: rgba(255,255,255,0.07); transform: translateY(-1px); }
+.combosPage .opt.on{ border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.14); }
+.combosPage .optTitle{ font-weight: 900; }
+.combosPage .optSub{
+  margin-top: 6px; font-size: 12px; color: rgba(255,255,255,0.68); line-height: 1.35;
+}
+
+/* Fields */
+.combosPage .field{ margin-top: 10px; }
+.combosPage label{
+  display:block; font-size: 12px; color: rgba(255,255,255,0.70);
+  margin-bottom: 6px; text-transform: uppercase; letter-spacing:.4px;
+}
+.combosPage input,
+.combosPage select{
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.18);
+  color: rgba(255,255,255,0.92);
+  padding: 0 12px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color .12s ease, background .12s ease;
+}
+.combosPage input::placeholder{ color: rgba(255,255,255,0.35); }
+.combosPage input:focus,
+.combosPage select:focus{
+  border-color: rgba(99,102,241,0.40);
+  background: rgba(0,0,0,0.24);
+}
+.combosPage .hint{ margin-top: 6px; font-size: 12px; color: rgba(255,255,255,0.60); }
+
+/* Chips */
+.combosPage .chips{ display:flex; flex-wrap:wrap; gap: 8px; margin-top: 10px; }
+.combosPage .chip{
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor:pointer;
+  user-select: none;
+  transition: background .12s ease, border-color .12s ease, transform .12s ease;
+}
+.combosPage .chip:hover{ transform: translateY(-1px); background: rgba(255,255,255,0.08); }
+.combosPage .chip.on{ border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.16); }
+
+/* Actions */
+.combosPage .actionsRow{
+  display:flex; gap: 12px; justify-content: space-between; flex-wrap:wrap;
+  margin-top: 14px;
+}
+@media (max-width: 560px){
+  .combosPage .actionsRow{ flex-direction: column; }
+  .combosPage .btn, .combosPage .btn.primary{ width: 100%; min-width: unset; }
+}
+.combosPage .btn{
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  cursor:pointer;
+  transition: background .12s ease, transform .12s ease, border-color .12s ease, opacity .12s ease;
+}
+.combosPage .btn:hover{ background: rgba(255,255,255,0.10); transform: translateY(-1px); }
+.combosPage .btn:active{ transform: translateY(0px); }
+.combosPage .btn:disabled{ opacity: .6; cursor:not-allowed; transform: none; }
+
+.combosPage .btn.primary{
+  min-width: 180px;
+  font-weight: 900;
+  border-color: rgba(34,197,94,0.35);
+  background: linear-gradient(135deg, rgba(59,130,246,0.22), rgba(34,197,94,0.22));
+}
+.combosPage .btn.primary:hover{
+  background: linear-gradient(135deg, rgba(59,130,246,0.30), rgba(34,197,94,0.30));
+}
+
+/* Summary */
+.combosPage .summaryLine{
+  display:flex; justify-content:space-between; gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 13px;
+}
+.combosPage .summaryLine:last-child{ border-bottom: 0; }
+.combosPage .k{ color: rgba(255,255,255,0.65); }
+.combosPage .v{ font-weight: 900; }
+
+/* Warning */
+.combosPage .warn{
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(245,158,11,0.25);
+  background: rgba(245,158,11,0.10);
+  color: rgba(255,255,255,0.85);
+  font-size: 12px;
+}
