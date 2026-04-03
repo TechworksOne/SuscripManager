@@ -38,7 +38,7 @@ services:
     container_name: suscrip_frontend
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - "8091:80"
     depends_on:
       - backend
 
