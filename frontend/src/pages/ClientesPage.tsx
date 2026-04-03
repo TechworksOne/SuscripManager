@@ -1,4 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Edit2,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  User,
+  Users,
+  UserX,
+  X,
+} from "lucide-react";
 import type { Cliente, SuscripcionCliente } from "../api/clientes";
 import { actualizarCliente, crearCliente, getClientes, toggleClienteActivo } from "../api/clientes";
 
@@ -11,11 +26,70 @@ import { getCuentas } from "../api/cuentas";
 import { apiFetch } from "../api/http";
 import { crearSuscripcion, eliminarSuscripcion } from "../api/suscripciones";
 
-/* =========================
-   Helpers
-========================= */
+import "../styles/clientes.css";
+
+// ── Types ────────────────────────────────────────────────
 type ToastType = "success" | "error" | "info";
 type Toast = { id: string; type: ToastType; message: string };
+type MetricColor = "blue" | "green" | "slate";
+
+// ── Shared Tailwind strings ───────────────────────────────
+const inputCls =
+  "w-full h-11 px-3.5 rounded-xl border border-white/10 bg-white/5 text-white/90 text-sm font-semibold placeholder:text-white/35 outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500/35 transition-all duration-150 disabled:opacity-50";
+const selectCls = inputCls + " appearance-none cursor-pointer pr-9";
+
+// ── MetricCard ───────────────────────────────────────────
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number | string;
+  color: MetricColor;
+  children?: React.ReactNode;
+}) {
+  const pal: Record<MetricColor, { wrap: string; icon: string; num: string }> = {
+    blue:  { wrap: "border-sky-500/20 bg-sky-500/10",       icon: "bg-sky-500/15 text-sky-400",        num: "text-sky-200"     },
+    green: { wrap: "border-emerald-500/20 bg-emerald-500/10", icon: "bg-emerald-500/15 text-emerald-400", num: "text-emerald-200" },
+    slate: { wrap: "border-white/10 bg-white/5",             icon: "bg-white/10 text-white/45",          num: "text-white/80"   },
+  };
+  const { wrap, icon, num } = pal[color];
+  return (
+    <div className={`rounded-2xl border ${wrap} p-5 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/25`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-extrabold uppercase tracking-widest text-white/40 mb-2">{label}</p>
+          <p className={`text-5xl font-black tracking-tight leading-none ${num}`}>{value}</p>
+          {children && <div className="mt-3 flex flex-wrap gap-1.5">{children}</div>}
+        </div>
+        <div className={`shrink-0 w-11 h-11 rounded-xl ${icon} flex items-center justify-center`}>
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FieldLabel ───────────────────────────────────────────
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] font-extrabold uppercase tracking-widest text-white/50 mb-1.5">{children}</p>;
+}
+
+// ── SectionHead ──────────────────────────────────────────
+function SectionHead({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="mb-4">
+      <p className="text-[11px] font-extrabold uppercase tracking-widest text-white/45">{title}</p>
+      {hint && <p className="text-xs text-white/35 font-medium mt-0.5">{hint}</p>}
+    </div>
+  );
+}
+
+// ── Helpers ──────────────────────────────────────────────
 
 function norm(s: string) {
   return (s || "").toLowerCase().trim();
@@ -501,126 +575,162 @@ export default function ClientesPage() {
   }, [editing, susItems.length]);
 
   return (
-    <div className="page-shell clientesPage">
-      <div className="toastStack" aria-live="polite" aria-relevant="additions">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.type}`}>
-            {t.message}
-          </div>
-        ))}
+    <div className="w-full max-w-7xl mx-auto">
+
+      {/* ── Toasts ───────────────────────────────────── */}
+      <div className="fixed right-4 top-4 z-50 flex flex-col gap-2 pointer-events-none" aria-live="polite">
+        {toasts.map((t) => {
+          const tw =
+            t.type === "success" ? "border-emerald-500/25 text-emerald-300"
+            : t.type === "error" ? "border-red-500/25 text-red-300"
+            : "border-sky-500/25 text-sky-300";
+          return (
+            <div key={t.id} className={`px-4 py-3 rounded-2xl border bg-[#080c18]/95 backdrop-blur-md font-bold text-sm shadow-2xl shadow-black/40 ${tw}`}>
+              {t.message}
+            </div>
+          );
+        })}
       </div>
 
-      <div className="pageHead">
+      {/* ── Header ───────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="pageTitle">Clientes</h1>
+          <h1 className="text-[2.25rem] font-black tracking-tight text-white/95 leading-none">Clientes</h1>
+          <p className="mt-2 text-white/45 font-medium text-sm">Gestión de clientes activos, inactivos y sus suscripciones.</p>
         </div>
-
-        <button className="btn primary" onClick={openCreate}>
-          + Nuevo cliente
+        <button
+          onClick={openCreate}
+          className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-sky-500/15 border border-sky-500/25 text-sky-300 font-extrabold text-sm hover:bg-sky-500/20 hover:border-sky-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-lg shadow-sky-500/5"
+        >
+          <Plus className="w-4 h-4" />
+          Nuevo cliente
         </button>
       </div>
 
-      <div className="kpiRow">
-        <div className="kpi">
-          <div className="kpi-label">Clientes visibles</div>
-          <div className="kpi-value">{kpi.visibles}</div>
-          <div className="kpi-foot">
-            <span className="hint">Según filtros.</span>
-          </div>
+      {/* ── KPI cards ────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <MetricCard icon={Users} label="Clientes visibles" value={kpi.visibles} color="blue">
+          <span className="text-[11px] text-white/35 font-semibold">Según filtros activos</span>
+        </MetricCard>
+        <MetricCard icon={CheckCircle2} label="Activos" value={kpi.activos} color="green">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-extrabold text-emerald-400">
+            Operativos
+          </span>
+        </MetricCard>
+        <MetricCard icon={UserX} label="Inactivos" value={kpi.inactivos} color="slate">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-extrabold text-white/40">
+            Archivados
+          </span>
+        </MetricCard>
+      </div>
+
+      {/* ── Filter bar ───────────────────────────────── */}
+      <div className="flex flex-col lg:flex-row gap-2.5 mb-5">
+        {/* Estado toggle pills */}
+        <div className="flex gap-1.5 shrink-0">
+          {(["1", "0", "all"] as const).map((v) => {
+            const labels = { "1": "Activos", "0": "Inactivos", all: "Todos" };
+            const active = activoFilter === v;
+            return (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setActivoFilter(v)}
+                className={`h-11 px-4 rounded-xl border font-bold text-sm transition-all duration-150 ${
+                  active
+                    ? "bg-sky-500/15 border-sky-500/30 text-sky-300"
+                    : "bg-white/5 border-white/8 text-white/55 hover:bg-white/8 hover:text-white/80"
+                }`}
+              >
+                {labels[v]}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="kpi">
-          <div className="kpi-label">Activos</div>
-          <div className="kpi-value">{kpi.activos}</div>
-          <div className="kpi-foot">
-            <span className="badge ok">Operativos</span>
-          </div>
+        {/* Search name */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+          <input
+            type="search"
+            value={qNombre}
+            onChange={(e) => setQNombre(e.target.value)}
+            placeholder="Nombre o teléfono…"
+            className={inputCls + " pl-10"}
+          />
         </div>
 
-        <div className="kpi">
-          <div className="kpi-label">Inactivos</div>
-          <div className="kpi-value">{kpi.inactivos}</div>
-          <div className="kpi-foot">
-            <span className="badge muted">Archivados</span>
-          </div>
+        {/* Service select */}
+        <div className="relative shrink-0 sm:w-48">
+          <select
+            value={servicioFilterId}
+            onChange={(e) => setServicioFilterId(e.target.value ? Number(e.target.value) : ("" as any))}
+            className={selectCls}
+          >
+            <option value="">Servicio: Todos</option>
+            {(servicios as any[]).map((s) => (
+              <option key={s.id} value={s.id}>{s.nombre_servicio}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+        </div>
+
+        {/* Email filter */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+          <input
+            type="search"
+            value={qCorreoCuenta}
+            onChange={(e) => setQCorreoCuenta(e.target.value)}
+            placeholder="Correo de cuenta…"
+            className={inputCls + " pl-10"}
+          />
+        </div>
+
+        {/* Día de corte */}
+        <div className="relative shrink-0 sm:w-36">
+          <input
+            value={diaCobroFilter}
+            onChange={(e) => setDiaCobroFilter(clampInt(e.target.value, 1, 31))}
+            placeholder="Día corte"
+            inputMode="numeric"
+            className={inputCls}
+          />
         </div>
       </div>
 
-      {/* ===== herramientas/filtros ===== */}
-      <div className="clientes-tools">
-        <select
-          className="input"
-          value={activoFilter}
-          onChange={(e) => setActivoFilter(e.target.value as any)}
-          title="Estado"
-        >
-          <option value="1">Activos</option>
-          <option value="0">Inactivos</option>
-          <option value="all">Todos</option>
-        </select>
-
-        <input
-          className="input"
-          value={qNombre}
-          onChange={(e) => setQNombre(e.target.value)}
-          placeholder="Filtrar por nombre y teléfono"
-          title="Nombre del cliente"
-        />
-
-        <select
-          className="input"
-          value={servicioFilterId}
-          onChange={(e) => setServicioFilterId(e.target.value ? Number(e.target.value) : ("" as any))}
-          title="Servicio"
-        >
-          <option value="">Servicio: Todos</option>
-          {(servicios as any[]).map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.nombre_servicio}
-            </option>
-          ))}
-        </select>
-
-        <input
-          className="input"
-          value={qCorreoCuenta}
-          onChange={(e) => setQCorreoCuenta(e.target.value)}
-          placeholder="Correo de la cuenta (ej: cuenta@gmail.com)…"
-          title="Correo de cuenta"
-        />
-
-        <input
-          className="input"
-          value={diaCobroFilter}
-          onChange={(e) => setDiaCobroFilter(clampInt(e.target.value, 1, 31))}
-          placeholder="Día de corte (1..31)"
-          inputMode="numeric"
-          title="Día de corte"
-        />
-      </div>
-
-      <div className="tableWrap">
-        {loading ? (
-          <div className="empty">
-            <div className="emptyTitle">Cargando…</div>
-            <div className="emptySub">Leyendo datos desde el backend.</div>
+      {/* ── Table / Empty ────────────────────────────── */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <Loader2 className="w-8 h-8 text-sky-400/60 animate-spin" />
+          <p className="text-white/35 font-semibold text-sm">Cargando clientes…</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="rounded-2xl border border-white/8 bg-white/5 flex flex-col items-center text-center py-20 px-6">
+          <div className="w-20 h-20 rounded-2xl bg-sky-500/8 border border-sky-500/15 flex items-center justify-center mb-6">
+            <User className="w-9 h-9 text-sky-400/50" />
           </div>
-        ) : items.length === 0 ? (
-          <div className="empty">
-            <div className="emptyTitle">Sin resultados</div>
-            <div className="emptySub">Pruebe limpiar filtros o cree un cliente nuevo.</div>
-            <button className="btn primary" onClick={openCreate}>
-              Crear cliente
-            </button>
-          </div>
-        ) : (
-          <table className="table">
+          <h3 className="text-xl font-black text-white/80 mb-2">Sin resultados</h3>
+          <p className="text-white/40 font-medium text-sm max-w-xs mb-6 leading-relaxed">
+            No hay clientes con los filtros aplicados. Ajústalos o crea el primero.
+          </p>
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-sky-500/12 border border-sky-500/20 text-sky-300 font-bold text-sm hover:bg-sky-500/18 hover:-translate-y-0.5 transition-all duration-200"
+          >
+            <Plus className="w-4 h-4" />
+            Crear primer cliente
+          </button>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-white/10 bg-white/2 overflow-hidden">
+          <table className="w-full border-collapse">
             <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Teléfono</th>
-                <th>Estado</th>
-                <th style={{ width: 220 }}>Acciones</th>
+              <tr className="bg-black/20 border-b border-white/8">
+                <th className="text-left px-5 py-3.5 text-[11px] font-extrabold uppercase tracking-widest text-white/40">Cliente</th>
+                <th className="text-left px-5 py-3.5 text-[11px] font-extrabold uppercase tracking-widest text-white/40">Teléfono</th>
+                <th className="text-left px-5 py-3.5 text-[11px] font-extrabold uppercase tracking-widest text-white/40">Estado</th>
+                <th className="text-right px-5 py-3.5 text-[11px] font-extrabold uppercase tracking-widest text-white/40">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -629,30 +739,39 @@ export default function ClientesPage() {
                 const isToggling = togglingId === c.id;
 
                 return (
-                  <tr key={c.id}>
-                    <td>
-                      <div className="cellMain">{c.nombre}</div>
-                      <div className="cellSub">ID: {c.id}</div>
+                  <tr key={c.id} className="border-b border-white/5 hover:bg-white/2.5 transition-colors duration-100 last:border-0">
+                    <td className="px-5 py-3.5">
+                      <p className="font-extrabold text-white/90 text-sm">{c.nombre}</p>
+                      <p className="text-[11px] text-white/35 font-semibold mt-0.5">ID {c.id}</p>
                     </td>
-                    <td>{c.telefono || "—"}</td>
-                    <td>
-                      <span className={`statusBadge ${isActive ? "on" : "off"}`}>
+                    <td className="px-5 py-3.5 text-sm text-white/60 font-medium">{c.telefono || "—"}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-extrabold tracking-wide ${
+                        isActive
+                          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                          : "bg-white/5 border-white/10 text-white/40"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-white/30"}`} />
                         {isActive ? "ACTIVO" : "INACTIVO"}
                       </span>
                     </td>
-                    <td>
-                      <div className="rowActions">
-                        <label className="switch" title={isActive ? "Desactivar" : "Activar"}>
-                          <input
-                            type="checkbox"
-                            checked={isActive}
-                            disabled={isToggling}
-                            onChange={() => onToggleActivo(c)}
-                          />
-                          <span className="slider" />
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Toggle */}
+                        <label className={`relative inline-flex items-center cursor-pointer ${isToggling ? "opacity-50 pointer-events-none" : ""}`}>
+                          <input type="checkbox" className="sr-only" checked={isActive} disabled={isToggling} onChange={() => onToggleActivo(c)} />
+                          <div className={`w-10 h-5 rounded-full border transition-all duration-200 relative ${isActive ? "bg-emerald-500/20 border-emerald-500/30" : "bg-white/10 border-white/12"}`}>
+                            <span className={`absolute top-px w-4 h-4 rounded-full bg-white/90 shadow-sm transition-all duration-200 ${isActive ? "left-5" : "left-0.5"}`} />
+                          </div>
                         </label>
 
-                        <button className="btn ghost" onClick={() => openEdit(c)} disabled={isToggling}>
+                        <button
+                          type="button"
+                          onClick={() => openEdit(c)}
+                          disabled={isToggling}
+                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-white/8 bg-white/5 text-white/55 font-bold text-xs hover:bg-white/8 hover:text-white/85 transition-all duration-150 disabled:opacity-40"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
                           Editar
                         </button>
                       </div>
@@ -662,336 +781,249 @@ export default function ClientesPage() {
               })}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* =========================
-          MODAL CREATE/EDIT (Split)
-      ========================== */}
+      {/* ── Modal Create/Edit ─────────────────────────── */}
       {open && (
-        <div className="modalBack" role="dialog" aria-modal="true">
-          <div className="modal modalWide">
-            <div className="modalHead">
-              <div>
-                <div className="modalTitle">{editing ? "Editar cliente" : "Nuevo cliente"}</div>
-                <div className="modalSub">Datos básicos para contacto y control.</div>
-              </div>
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm grid place-items-center p-4 z-40" role="dialog" aria-modal="true">
+          <div className="w-full max-w-4xl rounded-2xl border border-white/10 bg-[#080c18]/95 backdrop-blur-xl shadow-2xl shadow-black/60 flex flex-col max-h-[92vh]">
 
-              <button className="iconClose" type="button" onClick={() => setOpen(false)} aria-label="Cerrar">
-                ✕
+            {/* Modal header */}
+            <div className="flex items-start justify-between px-5 py-4 border-b border-white/8 shrink-0">
+              <div>
+                <p className="font-black text-lg text-white/95">{editing ? "Editar cliente" : "Nuevo cliente"}</p>
+                <p className="text-sm text-white/40 font-medium mt-0.5">Datos, suscripciones y notas del cliente.</p>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar"
+                className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white/55 hover:text-white/90 hover:bg-white/8 transition-all flex items-center justify-center">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={onSubmit}>
-              <div className="modalSplit">
-                {/* NAV */}
-                <aside className="modalNav" aria-label="Navegación de secciones">
-                  <button
-                    type="button"
-                    className={`modalNavItem ${modalTab === "cliente" ? "active" : ""}`}
-                    onClick={() => goTab("cliente")}
-                  >
-                    <span className="mniTitle">Cliente</span>
-                    <span className="mniSub">Nombre y teléfono</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`modalNavItem ${modalTab === "asignar" ? "active" : ""}`}
-                    onClick={() => goTab("asignar")}
-                  >
-                    <span className="mniTitle">Asignar</span>
-                    <span className="mniSub">Servicio, cuenta, cobro</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`modalNavItem ${modalTab === "suscripciones" ? "active" : ""}`}
-                    onClick={() => goTab("suscripciones")}
-                    disabled={!editing}
-                    title={!editing ? "Disponible al editar" : "Ver suscripciones"}
-                  >
-                    <span className="mniTitle">Suscripciones</span>
-                    <span className="mniSub">
-                      {editing ? `${susCount} asignadas` : "No disponible"}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`modalNavItem ${modalTab === "extra" ? "active" : ""}`}
-                    onClick={() => goTab("extra")}
-                  >
-                    <span className="mniTitle">Extra</span>
-                    <span className="mniSub">Dirección y notas</span>
-                  </button>
+            <form onSubmit={onSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="flex flex-1 min-h-0">
+                {/* Sidebar nav */}
+                <aside className="hidden md:flex md:w-52 shrink-0 flex-col gap-2 border-r border-white/8 bg-black/10 p-3">
+                  {(["cliente", "asignar", "suscripciones", "extra"] as ModalTab[]).map((tab) => {
+                    const meta: Record<ModalTab, { title: string; sub: string }> = {
+                      cliente:        { title: "Cliente",        sub: "Nombre y teléfono" },
+                      asignar:        { title: "Asignar",        sub: "Servicio, cobro"   },
+                      suscripciones:  { title: "Suscripciones",  sub: editing ? `${susCount} asignadas` : "Solo en edición" },
+                      extra:          { title: "Extra",          sub: "Dirección y notas" },
+                    };
+                    const active = modalTab === tab;
+                    const disabled = tab === "suscripciones" && !editing;
+                    return (
+                      <button key={tab} type="button" onClick={() => goTab(tab)} disabled={disabled}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
+                          active ? "border-sky-500/30 bg-sky-500/10" : "border-white/8 bg-white/5 hover:bg-white/8"
+                        }`}>
+                        <p className={`font-extrabold ${active ? "text-sky-300" : "text-white/75"}`}>{meta[tab].title}</p>
+                        <p className="text-[11px] text-white/35 font-medium mt-0.5">{meta[tab].sub}</p>
+                      </button>
+                    );
+                  })}
                 </aside>
 
-                {/* CONTENT */}
-                <div className="modalContent" ref={modalScrollRef}>
-                  <div className="modalBody">
-                    {/* SECCIÓN: CLIENTE */}
-                    <div className="modalSection" ref={secClienteRef}>
-                      <div className="sectionHead">
-                        <div className="sectionTitle">Cliente</div>
-                        <div className="sectionHint">Datos básicos para contacto.</div>
-                      </div>
+                {/* Mobile tab pills */}
+                <div className="md:hidden flex gap-2 overflow-x-auto px-4 py-3 border-b border-white/8 shrink-0 w-full">
+                  {(["cliente", "asignar", "suscripciones", "extra"] as ModalTab[]).map((tab) => (
+                    <button key={tab} type="button" onClick={() => goTab(tab)} disabled={tab === "suscripciones" && !editing}
+                      className={`shrink-0 h-8 px-3.5 rounded-full border text-xs font-extrabold transition-all duration-150 disabled:opacity-40 ${
+                        modalTab === tab ? "border-sky-500/30 bg-sky-500/12 text-sky-300" : "border-white/8 bg-white/5 text-white/55"
+                      }`}>
+                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </button>
+                  ))}
+                </div>
 
-                      <div className="grid2">
-                        <div className="field">
-                          <div className="label">Nombre</div>
-                          <input
-                            className="input"
-                            value={nombre}
-                            onChange={(e) => setNombre(e.target.value)}
-                            required
-                          />
+                {/* Scrollable content */}
+                <div className="flex-1 min-h-0 overflow-y-auto" ref={modalScrollRef}>
+                  <div className="p-5 flex flex-col gap-1">
+
+                    {/* CLIENTE */}
+                    <section ref={secClienteRef} className="pb-5 mb-1 border-b border-white/8">
+                      <SectionHead title="Cliente" hint="Datos básicos para contacto." />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <FieldLabel>Nombre</FieldLabel>
+                          <input className={inputCls} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre completo" required />
                         </div>
-
-                        <div className="field">
-                          <div className="label">Teléfono</div>
-                          <input
-                            className="input"
-                            value={telefono}
-                            onChange={(e) => setTelefono(e.target.value)}
-                          />
+                        <div>
+                          <FieldLabel>Teléfono</FieldLabel>
+                          <input className={inputCls} value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Opcional" />
                         </div>
                       </div>
-                    </div>
+                    </section>
 
-                    {/* SECCIÓN: ASIGNAR */}
-                    <div className="modalSection" ref={secAsignarRef}>
-                      <div className="sectionHead">
-                        <div className="sectionTitle">Asignar</div>
-                        <div className="sectionHint">Crear una suscripción al mismo tiempo.</div>
+                    {/* ASIGNAR */}
+                    <section ref={secAsignarRef} className="py-5 mb-1 border-b border-white/8">
+                      <SectionHead title="Asignar suscripción" hint="Crea una suscripción al mismo tiempo." />
+
+                      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-white/8 bg-white/5 mb-4">
+                        <div>
+                          <p className="font-extrabold text-sm text-white/85">Asignar suscripción ahora</p>
+                          <p className="text-xs text-white/40 font-medium mt-0.5">Servicio, cuenta, cobro y precio.</p>
+                        </div>
+                        <label className={`relative inline-flex items-center cursor-pointer`}>
+                          <input type="checkbox" className="sr-only" checked={asignarSuscripcion}
+                            onChange={(e) => { const v = e.target.checked; setAsignarSuscripcion(v); if (!v) resetSuscripcionForm(); else setPrecioTouched(false); }} />
+                          <div className={`w-10 h-5 rounded-full border transition-all duration-200 relative ${asignarSuscripcion ? "bg-emerald-500/20 border-emerald-500/30" : "bg-white/10 border-white/12"}`}>
+                            <span className={`absolute top-px w-4 h-4 rounded-full bg-white/90 shadow-sm transition-all duration-200 ${asignarSuscripcion ? "left-5" : "left-0.5"}`} />
+                          </div>
+                        </label>
                       </div>
 
-                      <div className="susBlock" style={{ marginTop: 0 }}>
-                        <div className="susHead">
+                      {asignarSuscripcion && (
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <div className="susTitle">Asignar suscripción ahora</div>
-                            <div className="susHint">
-                              Define servicio, cuenta disponible, día de cobro y precio mensual.
-                            </div>
-                          </div>
-
-                          <label className="switch" title={asignarSuscripcion ? "Quitar" : "Asignar"}>
-                            <input
-                              type="checkbox"
-                              checked={asignarSuscripcion}
-                              onChange={(e) => {
-                                const v = e.target.checked;
-                                setAsignarSuscripcion(v);
-                                if (!v) resetSuscripcionForm();
-                                else setPrecioTouched(false);
-                              }}
-                            />
-                            <span className="slider" />
-                          </label>
-                        </div>
-
-                        {asignarSuscripcion && (
-                          <div className="susGrid">
-                            <div className="field">
-                              <div className="label">Servicio</div>
-                              <select
-                                className="input"
-                                value={servicioId}
-                                onChange={(e) =>
-                                  setServicioId(e.target.value ? Number(e.target.value) : ("" as any))
-                                }
-                                required
-                              >
+                            <FieldLabel>Servicio</FieldLabel>
+                            <div className="relative">
+                              <select className={selectCls} value={servicioId}
+                                onChange={(e) => setServicioId(e.target.value ? Number(e.target.value) : ("" as any))} required>
                                 <option value="">Seleccione…</option>
-                                {(servicios as any[]).map((s) => (
-                                  <option key={s.id} value={s.id}>
-                                    {s.nombre_servicio}
-                                  </option>
-                                ))}
+                                {(servicios as any[]).map((s) => <option key={s.id} value={s.id}>{s.nombre_servicio}</option>)}
                               </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
                             </div>
+                          </div>
 
-                            <div className="field">
-                              <div className="label">Cuenta (solo disponibles)</div>
-                              <select
-                                className="input"
-                                value={cuentaId}
-                                onChange={(e) =>
-                                  setCuentaId(e.target.value ? Number(e.target.value) : ("" as any))
-                                }
-                                disabled={!servicioId || cuentasDisponibles.length === 0}
-                                required
-                              >
-                                <option value="">
-                                  {servicioId ? "Seleccione…" : "Primero elija servicio…"}
-                                </option>
+                          <div>
+                            <FieldLabel>Cuenta disponible</FieldLabel>
+                            <div className="relative">
+                              <select className={selectCls} value={cuentaId}
+                                onChange={(e) => setCuentaId(e.target.value ? Number(e.target.value) : ("" as any))}
+                                disabled={!servicioId || cuentasDisponibles.length === 0} required>
+                                <option value="">{servicioId ? "Seleccione…" : "Primero elija servicio…"}</option>
                                 {cuentasDisponibles.map((cu: any) => (
-                                  <option key={cu.id} value={cu.id}>
-                                    {cu.correo} ({Number(cu.cupo_ocupado)}/{Number(cu.cupo_total)})
-                                  </option>
+                                  <option key={cu.id} value={cu.id}>{cu.correo} ({Number(cu.cupo_ocupado)}/{Number(cu.cupo_total)})</option>
                                 ))}
                               </select>
-
-                              {servicioId && cuentasDisponibles.length === 0 && (
-                                <div className="susWarn">
-                                  No hay cuentas disponibles para este servicio (todas llenas o inactivas).
-                                </div>
-                              )}
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
                             </div>
-
-                            <div className="field">
-                              <div className="label">Precio mensual (Q)</div>
-                              <input
-                                className="input"
-                                value={precioMensual}
-                                onChange={(e) => {
-                                  setPrecioMensual(e.target.value);
-                                  setPrecioTouched(true);
-                                }}
-                                placeholder="Ej: 35"
-                                inputMode="decimal"
-                                required
-                              />
-                              <div className="susMini">
-                                {servicioSeleccionado ? (
-                                  <>Sugerido: Q {String((servicioSeleccionado as any).venta_por_cuenta ?? "—")}</>
-                                ) : (
-                                  <>Seleccione un servicio para sugerencia.</>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="field">
-                              <div className="label">Día de cobro (1..31)</div>
-                              <input
-                                className="input"
-                                value={diaCobro}
-                                onChange={(e) =>
-                                  setDiaCobro(clampInt(e.target.value, 1, 31) || e.target.value)
-                                }
-                                inputMode="numeric"
-                                required
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* SECCIÓN: SUSCRIPCIONES */}
-                    <div className="modalSection" ref={secSusRef}>
-                      <div className="sectionHead">
-                        <div className="sectionTitle">Suscripciones</div>
-                        <div className="sectionHint">Lo que ya está asignado al cliente.</div>
-                      </div>
-
-                      {editing ? (
-                        <div className="susBlock" style={{ marginTop: 0 }}>
-                          <div className="susHead">
-                            <div>
-                              <div className="susTitle">Suscripciones del cliente</div>
-                              <div className="susHint">
-                                Lo que ya está asignado en el sistema (puede haber más de una).
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              className="btn ghost"
-                              onClick={() => loadSuscripciones(editing.id)}
-                              disabled={susLoading}
-                              title="Recargar"
-                            >
-                              {susLoading ? "Cargando…" : "Recargar"}
-                            </button>
+                            {servicioId && cuentasDisponibles.length === 0 && (
+                              <p className="mt-2 text-xs text-amber-400/90 font-semibold flex items-center gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                Sin cuentas disponibles para este servicio.
+                              </p>
+                            )}
                           </div>
 
-                          {susLoading ? (
-                            <div className="susWarn">Leyendo suscripciones…</div>
-                          ) : susItems.length === 0 ? (
-                            <div className="susWarn">Este cliente no tiene suscripciones asignadas.</div>
-                          ) : (
-                            <div className="tableWrap" style={{ marginTop: 10 }}>
-                              <table className="table">
-                                <thead>
-                                  <tr>
-                                    <th>Servicio</th>
-                                    <th>Cuenta</th>
-                                    <th>Precio</th>
-                                    <th>Día cobro</th>
-                                    <th>Estado</th>
-                                    <th style={{ width: 120 }}>Acción</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {susItems.map((s: any) => {
-                                    const deleting = susDeletingId === s.id;
-                                    return (
-                                      <tr key={s.id}>
-                                        <td>
-                                          <div className="cellMain">{s.servicio}</div>
-                                          <div className="cellSub">Suscripción ID: {s.id}</div>
-                                        </td>
-                                        <td>{s.cuenta_correo}</td>
-                                        <td>{money(s.precio_mensual)}</td>
-                                        <td>{s.dia_cobro}</td>
-                                        <td>
-                                          <span className={`statusBadge ${s.estado === "ACTIVA" ? "on" : "off"}`}>
-                                            {s.estado}
-                                          </span>
-                                        </td>
-                                        <td>
-                                          <button
-                                            type="button"
-                                            className="btn ghost"
-                                            onClick={() => openDeleteConfirm(s)}
-                                            disabled={deleting}
-                                            title="Eliminar suscripción"
-                                          >
-                                            {deleting ? "Eliminando…" : "Eliminar"}
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="susWarn" style={{ marginTop: 0 }}>
-                          Cree el cliente o ábralo en edición para ver suscripciones.
+                          <div>
+                            <FieldLabel>Precio mensual (Q)</FieldLabel>
+                            <input className={inputCls} value={precioMensual}
+                              onChange={(e) => { setPrecioMensual(e.target.value); setPrecioTouched(true); }}
+                              placeholder="Ej: 35" inputMode="decimal" required />
+                            <p className="text-[11px] text-white/30 mt-1.5 font-medium">
+                              {servicioSeleccionado
+                                ? `Sugerido: Q ${String((servicioSeleccionado as any).venta_por_cuenta ?? "—")}`
+                                : "Seleccione servicio para sugerencia"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <FieldLabel>Día de cobro (1–31)</FieldLabel>
+                            <input className={inputCls} value={diaCobro}
+                              onChange={(e) => setDiaCobro(clampInt(e.target.value, 1, 31) || e.target.value)}
+                              inputMode="numeric" required />
+                          </div>
                         </div>
                       )}
-                    </div>
+                    </section>
 
-                    {/* SECCIÓN: EXTRA */}
-                    <div className="modalSection" ref={secExtraRef}>
-                      <div className="sectionHead">
-                        <div className="sectionTitle">Extra</div>
-                        <div className="sectionHint">Campos internos para control.</div>
+                    {/* SUSCRIPCIONES */}
+                    <section ref={secSusRef} className="py-5 mb-1 border-b border-white/8">
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <SectionHead title="Suscripciones" hint="Las ya asignadas al cliente." />
+                        {editing && (
+                          <button type="button" onClick={() => loadSuscripciones(editing.id)} disabled={susLoading}
+                            className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-white/8 bg-white/5 text-white/55 font-bold text-xs hover:bg-white/8 transition-all disabled:opacity-40">
+                            <RefreshCw className={`w-3.5 h-3.5 ${susLoading ? "animate-spin" : ""}`} />
+                            {susLoading ? "Cargando…" : "Recargar"}
+                          </button>
+                        )}
                       </div>
 
-                      <div className="field">
-                        <div className="label">Dirección</div>
-                        <input className="input" value={direccion} onChange={(e) => setDireccion(e.target.value)} />
-                      </div>
+                      {!editing ? (
+                        <p className="text-sm text-white/35 font-medium px-1">Cree el cliente o ábralo en edición para ver suscripciones.</p>
+                      ) : susLoading ? (
+                        <div className="flex items-center gap-2 text-white/40 text-sm font-medium px-1">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Leyendo suscripciones…
+                        </div>
+                      ) : susItems.length === 0 ? (
+                        <p className="text-sm text-white/35 font-medium px-1">Este cliente no tiene suscripciones asignadas.</p>
+                      ) : (
+                        <div className="rounded-xl border border-white/8 overflow-hidden">
+                          <table className="w-full border-collapse">
+                            <thead className="bg-black/20 border-b border-white/8">
+                              <tr>
+                                {["Servicio", "Cuenta", "Precio", "Día", "Estado", ""].map((h) => (
+                                  <th key={h} className="text-left px-3 py-2.5 text-[10px] font-extrabold uppercase tracking-widest text-white/35">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {susItems.map((s: any) => {
+                                const deleting = susDeletingId === s.id;
+                                return (
+                                  <tr key={s.id} className="border-b border-white/5 last:border-0 hover:bg-white/2 transition-colors">
+                                    <td className="px-3 py-2.5">
+                                      <p className="text-sm font-extrabold text-white/85">{s.servicio}</p>
+                                      <p className="text-[10px] text-white/30 font-semibold">ID {s.id}</p>
+                                    </td>
+                                    <td className="px-3 py-2.5 text-xs text-white/55 font-medium">{s.cuenta_correo}</td>
+                                    <td className="px-3 py-2.5 text-xs text-white/70 font-bold">{money(s.precio_mensual)}</td>
+                                    <td className="px-3 py-2.5 text-xs text-white/55 font-medium">{s.dia_cobro}</td>
+                                    <td className="px-3 py-2.5">
+                                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-extrabold ${
+                                        s.estado === "ACTIVA" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/5 border-white/10 text-white/40"
+                                      }`}>{s.estado}</span>
+                                    </td>
+                                    <td className="px-3 py-2.5">
+                                      <button type="button" onClick={() => openDeleteConfirm(s)} disabled={deleting}
+                                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-red-500/20 bg-red-500/8 text-red-400 font-bold text-xs hover:bg-red-500/14 transition-all disabled:opacity-40">
+                                        {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                        {deleting ? "…" : "Eliminar"}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
 
-                      <div className="field">
-                        <div className="label">Notas</div>
-                        <textarea className="input" rows={3} value={notas} onChange={(e) => setNotas(e.target.value)} />
+                    {/* EXTRA */}
+                    <section ref={secExtraRef} className="pt-5 pb-2">
+                      <SectionHead title="Extra" hint="Dirección y notas internas." />
+                      <div className="flex flex-col gap-3">
+                        <div>
+                          <FieldLabel>Dirección</FieldLabel>
+                          <input className={inputCls} value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="Opcional" />
+                        </div>
+                        <div>
+                          <FieldLabel>Notas</FieldLabel>
+                          <textarea className={inputCls + " h-auto py-3 min-h-24 resize-y"} rows={3} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Información adicional…" />
+                        </div>
                       </div>
-                    </div>
+                    </section>
+
                   </div>
                 </div>
               </div>
 
-              <div className="modalFoot">
-                <button className="btn ghost" type="button" onClick={() => setOpen(false)}>
+              {/* Modal footer */}
+              <div className="flex justify-end gap-2.5 px-5 py-4 border-t border-white/8 bg-black/10 shrink-0">
+                <button type="button" onClick={() => setOpen(false)}
+                  className="h-10 px-5 rounded-xl border border-white/10 bg-white/5 text-white/60 font-bold text-sm hover:bg-white/8 hover:text-white/85 transition-all duration-150">
                   Cancelar
                 </button>
-                <button className="btn primary" type="submit" disabled={saving}>
+                <button type="submit" disabled={saving}
+                  className="h-10 px-5 rounded-xl bg-sky-500/15 border border-sky-500/25 text-sky-300 font-extrabold text-sm hover:bg-sky-500/20 transition-all duration-150 disabled:opacity-50 inline-flex items-center gap-2">
+                  {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {saving ? "Guardando…" : editing ? "Guardar cambios" : "Crear cliente"}
                 </button>
               </div>
@@ -1000,41 +1032,40 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* ===== Modal Confirmación Eliminar Suscripción ===== */}
+      {/* ── Confirm delete subscription ───────────────── */}
       {confirmOpen && (
-        <div className="modalBack" role="dialog" aria-modal="true">
-          <div className="modal" style={{ maxWidth: 520 }}>
-            <div className="modalHead">
+        <div className="fixed inset-0 bg-black/65 backdrop-blur-sm grid place-items-center p-4 z-50" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#080c18]/96 backdrop-blur-xl shadow-2xl shadow-black/60">
+            <div className="flex items-start justify-between px-5 py-4 border-b border-white/8">
               <div>
-                <div className="modalTitle">Confirmar eliminación</div>
-                <div className="modalSub">Esta acción no se puede deshacer.</div>
+                <p className="font-black text-lg text-white/95">Confirmar eliminación</p>
+                <p className="text-sm text-white/40 font-medium mt-0.5">Esta acción no se puede deshacer.</p>
               </div>
-
-              <button className="iconClose" type="button" onClick={closeDeleteConfirm} aria-label="Cerrar">
-                ✕
+              <button type="button" onClick={closeDeleteConfirm} disabled={confirmLoading} aria-label="Cerrar"
+                className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white/55 hover:bg-white/8 transition-all flex items-center justify-center disabled:opacity-40">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="modalBody">
-              <div className="susWarn" style={{ marginTop: 0 }}>
-                ¿Está seguro que desea eliminar esta suscripción?
+            <div className="px-5 py-5">
+              <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/8 mb-4">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-300/90 font-semibold">¿Está seguro que desea eliminar esta suscripción?</p>
               </div>
-
-              <div style={{ marginTop: 12 }}>
-                <div className="cellMain">
-                  Servicio: <b>{susToDelete?.servicio}</b>
-                </div>
-                <div className="cellSub" style={{ marginTop: 6 }}>
-                  Cuenta: <b>{susToDelete?.cuenta_correo}</b>
-                </div>
+              <div className="space-y-1">
+                <p className="text-sm font-extrabold text-white/80">Servicio: <span className="text-white/95">{susToDelete?.servicio}</span></p>
+                <p className="text-xs text-white/45 font-medium">Cuenta: {susToDelete?.cuenta_correo}</p>
               </div>
             </div>
 
-            <div className="modalFoot">
-              <button className="btn ghost" type="button" onClick={closeDeleteConfirm} disabled={confirmLoading}>
+            <div className="flex justify-end gap-2.5 px-5 pb-5">
+              <button type="button" onClick={closeDeleteConfirm} disabled={confirmLoading}
+                className="h-10 px-5 rounded-xl border border-white/10 bg-white/5 text-white/60 font-bold text-sm hover:bg-white/8 transition-all disabled:opacity-40">
                 Cancelar
               </button>
-              <button className="btn primary" type="button" onClick={onDeleteSuscripcionConfirmado} disabled={confirmLoading}>
+              <button type="button" onClick={onDeleteSuscripcionConfirmado} disabled={confirmLoading}
+                className="h-10 px-5 rounded-xl bg-red-500/12 border border-red-500/20 text-red-400 font-extrabold text-sm hover:bg-red-500/18 transition-all disabled:opacity-50 inline-flex items-center gap-2">
+                {confirmLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 {confirmLoading ? "Eliminando…" : "Sí, eliminar"}
               </button>
             </div>
