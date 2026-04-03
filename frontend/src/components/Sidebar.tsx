@@ -52,16 +52,16 @@ const NAV: NavItem[] = [
     accent: "#a78bfa",
   },
   {
-    to: "/combos",
-    label: "Combos",
-    Icon: Package,
-    accent: "#34d399",
-  },
-  {
     to: "/cobranza",
     label: "Cobranza",
     Icon: Wallet,
     accent: "#fbbf24",
+  },
+  {
+    to: "/combos",
+    label: "Combos",
+    Icon: Package,
+    accent: "#34d399",
   },
   {
     to: "/historial-cobros",
