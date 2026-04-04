@@ -106,102 +106,135 @@ export default function HistorialCobrosPage() {
   }, [hFrom, hTo, hQ, hServicioId]);
 
   return (
-    <div className="page-shell historialCobrosPage">
-      <div className="toastStack" aria-live="polite" aria-relevant="additions">
+    <div className="historial-cobros-page">
+      {/* ── Toasts ── */}
+      <div className="hc-toast-stack" aria-live="polite" aria-relevant="additions">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.type}`}>
+          <div key={t.id} className={`hc-toast hc-toast--${t.type}`}>
             {t.message}
           </div>
         ))}
       </div>
 
-      <div className="pageHead">
-        <div>
-          <h1 className="pageTitle">Historial de Cobros</h1>
-          <p className="pageSub">
-            Auditoría por rango, servicio o búsqueda (cliente / correo / servicio).
-          </p>
+      {/* ── Header ── */}
+      <div className="historial-cobros-header">
+        <h1 className="historial-titulo">Historial de Cobros</h1>
+        <p className="historial-subtitulo">
+          Auditoría por rango, servicio o búsqueda (cliente&nbsp;/&nbsp;correo&nbsp;/&nbsp;servicio).
+        </p>
+      </div>
+
+      {/* ── Main card ── */}
+      <div className="historial-cobros-card">
+
+        {/* Filtros */}
+        <div className="historial-filtros">
+          <input
+            className="hc-input"
+            type="date"
+            value={hFrom}
+            onChange={(e) => setHFrom(e.target.value)}
+            title="Fecha inicio"
+          />
+          <input
+            className="hc-input"
+            type="date"
+            value={hTo}
+            onChange={(e) => setHTo(e.target.value)}
+            title="Fecha fin"
+          />
+          <select
+            className="hc-input"
+            value={hServicioId}
+            onChange={(e) => setHServicioId(e.target.value ? Number(e.target.value) : "")}
+            title="Servicio"
+          >
+            <option value="">Servicio: Todos</option>
+            {servicios.map((s: any) => (
+              <option key={s.id} value={s.id}>
+                {s.nombre_servicio}
+              </option>
+            ))}
+          </select>
+          <input
+            className="hc-input hc-input--search"
+            value={hQ}
+            onChange={(e) => setHQ(e.target.value)}
+            placeholder="Cliente / correo / servicio…"
+          />
+          <button className="btn-recargar" onClick={loadHistorial} disabled={hLoading}>
+            {hLoading ? (
+              <>
+                <span className="btn-recargar__spinner" aria-hidden="true" />
+                Cargando…
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                Recargar
+              </>
+            )}
+          </button>
         </div>
-      </div>
 
-      <div className="tools">
-        <input
-          className="input"
-          type="date"
-          value={hFrom}
-          onChange={(e) => setHFrom(e.target.value)}
-        />
-        <input className="input" type="date" value={hTo} onChange={(e) => setHTo(e.target.value)} />
+        {/* Resultados */}
+        <div className="historial-resultados">
+          {hLoading ? (
+            <div className="historial-estado-vacio">
+              <div className="historial-estado-vacio__icon" aria-hidden="true">⏳</div>
+              <p className="historial-estado-vacio__titulo">Consultando registros…</p>
+              <p className="historial-estado-vacio__sub">Cargando historial, un momento.</p>
+            </div>
+          ) : historial.length === 0 ? (
+            <div className="historial-estado-vacio">
+              <div className="historial-estado-vacio__icon" aria-hidden="true">🔍</div>
+              <p className="historial-estado-vacio__titulo">Sin registros en este período</p>
+              <p className="historial-estado-vacio__sub">
+                Ajusta el rango de fechas o cambia los filtros para encontrar cobros.
+              </p>
+            </div>
+          ) : (
+            <div className="historial-tabla-wrapper">
+              <table className="historial-tabla">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Servicio</th>
+                    <th>Cuenta</th>
+                    <th>Meses</th>
+                    <th>Monto</th>
+                    <th>Método</th>
+                    <th>Boleta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historial.map((x) => (
+                    <tr key={x.id}>
+                      <td>{x.fecha}</td>
+                      <td>{x.cliente_nombre}</td>
+                      <td>{x.servicio}</td>
+                      <td>{x.cuenta_correo}</td>
+                      <td>{x.meses_pagados}</td>
+                      <td>{money(x.monto)}</td>
+                      <td>
+                        <span className={`hc-badge hc-badge--${x.metodo.toLowerCase()}`}>
+                          {x.metodo}
+                        </span>
+                      </td>
+                      <td>{x.boleta || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
-        <select
-          className="input"
-          value={hServicioId}
-          onChange={(e) => setHServicioId(e.target.value ? Number(e.target.value) : "")}
-          title="Servicio"
-        >
-          <option value="">Servicio: Todos</option>
-          {servicios.map((s: any) => (
-            <option key={s.id} value={s.id}>
-              {s.nombre_servicio}
-            </option>
-          ))}
-        </select>
-
-        <input
-          className="input"
-          value={hQ}
-          onChange={(e) => setHQ(e.target.value)}
-          placeholder="Cliente / correo / servicio…"
-        />
-
-        <button className="btn ghost" onClick={loadHistorial} disabled={hLoading}>
-          {hLoading ? "Cargando…" : "Recargar"}
-        </button>
-      </div>
-
-      <div className="tableWrap">
-        {hLoading ? (
-          <div className="empty">
-            <div className="emptyTitle">Cargando…</div>
-            <div className="emptySub">Leyendo historial.</div>
-          </div>
-        ) : historial.length === 0 ? (
-          <div className="empty">
-            <div className="emptyTitle">Sin registros</div>
-            <div className="emptySub">No hay cobros en el rango seleccionado.</div>
-          </div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Cliente</th>
-                <th>Servicio</th>
-                <th>Cuenta</th>
-                <th>Meses</th>
-                <th>Monto</th>
-                <th>Método</th>
-                <th>Boleta</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historial.map((x) => (
-                <tr key={x.id}>
-                  <td>{x.fecha}</td>
-                  <td>{x.cliente_nombre}</td>
-                  <td>{x.servicio}</td>
-                  <td>{x.cuenta_correo}</td>
-                  <td>{x.meses_pagados}</td>
-                  <td>{money(x.monto)}</td>
-                  <td>
-                    <span className="badge">{x.metodo}</span>
-                  </td>
-                  <td>{x.boleta || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
     </div>
   );

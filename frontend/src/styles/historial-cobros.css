@@ -1,129 +1,371 @@
-/* ===============================
-   Historial Cobros Page
-   Scope: .historialCobrosPage
-=============================== */
-.historialCobrosPage { color-scheme: dark; }
+/* ============================================================
+   Historial de Cobros — Premium Dark SaaS
+   Scope: .historial-cobros-page
+============================================================ */
 
-/* Toasts */
-.historialCobrosPage .toastStack{
+/* ── Page shell ── */
+.historial-cobros-page {
+  padding: 8px 4px 40px;
+  color-scheme: dark;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Toast stack ── */
+.hc-toast-stack {
   position: fixed;
   top: 14px;
   right: 14px;
-  z-index: 9999;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
+  z-index: var(--z-toast, 9999);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
 }
-.historialCobrosPage .toast{
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(10,16,28,0.95);
-  color: rgba(255,255,255,0.92);
-  box-shadow: 0 18px 50px rgba(0,0,0,0.45);
-  font-size: 13px;
-}
-.historialCobrosPage .toast.success{ border-color: rgba(16,185,129,0.35); }
-.historialCobrosPage .toast.error{ border-color: rgba(239,68,68,0.35); }
-.historialCobrosPage .toast.info{ border-color: rgba(59,130,246,0.35); }
 
-/* Head */
-.historialCobrosPage .pageHead{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-end;
-  gap:12px;
-  margin-bottom: 12px;
+.hc-toast {
+  pointer-events: auto;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 16, 28, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+  animation: hc-toast-in 0.22s ease;
 }
-.historialCobrosPage .pageTitle{
+.hc-toast--success { border-color: rgba(16, 185, 129, 0.40); }
+.hc-toast--error   { border-color: rgba(239,  68,  68, 0.40); }
+.hc-toast--info    { border-color: rgba(99,  130, 246, 0.40); }
+
+@keyframes hc-toast-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* ── Page header ── */
+.historial-cobros-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.historial-titulo {
   margin: 0;
-  font-size: 22px;
-  letter-spacing: 0.2px;
-}
-.historialCobrosPage .pageSub{
-  margin: 6px 0 0;
-  color: rgba(255,255,255,0.65);
-  font-size: 13px;
+  font-size: clamp(20px, 2.4vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: rgba(255, 255, 255, 0.97);
+  line-height: 1.2;
 }
 
-/* Tools */
-.historialCobrosPage .tools{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin: 12px 0;
+.historial-subtitulo {
+  margin: 0;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.48);
+  line-height: 1.55;
 }
-.historialCobrosPage .input{
-  height: 42px;
-  padding: 0 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.92);
-  outline: none;
+
+/* ── Main card ── */
+.historial-cobros-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 24px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
-.historialCobrosPage .btn{
+
+/* ── Filters row ── */
+.historial-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+/* ── Shared input / select ── */
+.hc-input {
   height: 42px;
   padding: 0 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.92);
-  cursor:pointer;
-}
-.historialCobrosPage .btn.ghost:hover{
-  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  min-width: 0;
 }
 
-/* Table */
-.historialCobrosPage .tableWrap{
-  margin-top: 10px;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.03);
+.hc-input::placeholder {
+  color: rgba(255, 255, 255, 0.32);
 }
-.historialCobrosPage .table{
-  width:100%;
+
+.hc-input[type="date"] {
+  color-scheme: dark;
+  min-width: 148px;
+}
+
+.hc-input--search {
+  flex: 1;
+  min-width: 180px;
+}
+
+.hc-input:hover {
+  border-color: rgba(255, 255, 255, 0.20);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.hc-input:focus {
+  border-color: rgba(99, 102, 241, 0.65);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.hc-input option {
+  background: #0b1220;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* ── Reload button ── */
+.btn-recargar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.42);
+  background: linear-gradient(135deg,
+    rgba(99, 102, 241, 0.24) 0%,
+    rgba(139, 92, 246, 0.24) 100%);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    transform    0.16s ease,
+    box-shadow   0.16s ease,
+    border-color 0.16s ease,
+    background   0.16s ease;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.12);
+}
+
+.btn-recargar:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(99, 102, 241, 0.68);
+  background: linear-gradient(135deg,
+    rgba(99, 102, 241, 0.38) 0%,
+    rgba(139, 92, 246, 0.38) 100%);
+  box-shadow: 0 10px 28px rgba(99, 102, 241, 0.22);
+}
+
+.btn-recargar:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.14);
+}
+
+.btn-recargar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-recargar__spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: rgba(255, 255, 255, 0.80);
+  animation: hc-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes hc-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Results area ── */
+.historial-resultados {
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+}
+
+/* ── Empty state ── */
+.historial-estado-vacio {
+  flex: 1;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 56px 24px;
+  text-align: center;
+}
+
+.historial-estado-vacio__icon {
+  font-size: 38px;
+  line-height: 1;
+  opacity: 0.65;
+  filter: grayscale(0.15);
+}
+
+.historial-estado-vacio__titulo {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.80);
+}
+
+.historial-estado-vacio__sub {
+  margin: 0;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.40);
+  max-width: 340px;
+  line-height: 1.6;
+}
+
+/* ── Table wrapper (scrollable) ── */
+.historial-tabla-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Table ── */
+.historial-tabla {
+  width: 100%;
   border-collapse: collapse;
+  font-size: 13.5px;
 }
-.historialCobrosPage .table th,
-.historialCobrosPage .table td{
-  padding: 12px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-  font-size: 13px;
-  vertical-align: top;
+
+.historial-tabla thead tr {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
 }
-.historialCobrosPage .table th{
-  font-size: 12px;
-  color: rgba(255,255,255,0.70);
+
+.historial-tabla th {
+  padding: 12px 16px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.48);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.historialCobrosPage .table tr:last-child td{
-  border-bottom: 0;
-}
-
-/* Empty states */
-.historialCobrosPage .empty{
-  padding: 18px;
-}
-.historialCobrosPage .emptyTitle{
-  font-weight: 700;
-}
-.historialCobrosPage .emptySub{
-  color: rgba(255,255,255,0.65);
-  margin-top: 4px;
-  font-size: 13px;
+  letter-spacing: 0.65px;
+  white-space: nowrap;
+  text-align: left;
 }
 
-/* Badge */
-.historialCobrosPage .badge{
-  display:inline-flex;
-  align-items:center;
-  padding: 6px 10px;
+.historial-tabla td {
+  padding: 14px 16px;
+  color: rgba(255, 255, 255, 0.84);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.historial-tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.historial-tabla tbody tr {
+  transition: background 0.12s ease;
+}
+
+.historial-tabla tbody tr:hover {
+  background: rgba(255, 255, 255, 0.032);
+}
+
+/* ── Payment method badges ── */
+.hc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.05);
-  font-size: 12px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.hc-badge--efectivo {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.28);
+  color: rgba(52, 211, 153, 0.95);
+}
+
+.hc-badge--transferencia {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.28);
+  color: rgba(96, 165, 250, 0.95);
+}
+
+.hc-badge--otro {
+  background: rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.28);
+  color: rgba(251, 191, 36, 0.95);
+}
+
+/* ── Responsive: tablet ── */
+@media (max-width: 900px) {
+  .historial-cobros-page {
+    gap: 18px;
+  }
+
+  .historial-filtros {
+    padding: 16px;
+    gap: 8px;
+  }
+
+  .hc-input[type="date"] {
+    min-width: 134px;
+  }
+
+  .hc-input--search {
+    min-width: 150px;
+  }
+}
+
+/* ── Responsive: mobile ── */
+@media (max-width: 640px) {
+  .historial-cobros-page {
+    padding: 4px 0 28px;
+    gap: 14px;
+  }
+
+  .historial-cobros-card {
+    border-radius: 16px;
+  }
+
+  .historial-filtros {
+    padding: 14px;
+    gap: 8px;
+  }
+
+  .hc-input,
+  .btn-recargar {
+    width: 100%;
+    flex: none;
+  }
+
+  .hc-input--search {
+    min-width: 0;
+  }
+
+  .historial-titulo {
+    font-size: 20px;
+  }
 }
