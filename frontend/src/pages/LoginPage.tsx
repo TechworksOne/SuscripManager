@@ -1,29 +1,67 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Mail, Lock, Eye, EyeOff, Loader2, Users, DollarSign, Zap, ShieldCheck } from "lucide-react";
 import { apiFetch } from "../api/http";
 import { setToken } from "../auth/auth.store";
 import "../styles/login.css";
 
 type LoginResp = { token: string };
 
+const FEATURES = [
+  {
+    icon: Users,
+    title: "Clientes y cuentas",
+    desc: "Asigne varias cuentas a un cliente y mantenga todo ordenado.",
+    color: "text-indigo-400",
+    bg: "bg-indigo-500/10 border-indigo-500/20",
+  },
+  {
+    icon: DollarSign,
+    title: "Cobros claros",
+    desc: "Sepa quién pagó, quién debe y cuánto entra por mes.",
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10 border-emerald-500/20",
+  },
+  {
+    icon: Zap,
+    title: "Promociones automáticas",
+    desc: "Configure combos y el sistema aplica meses gratis cuando corresponde.",
+    color: "text-amber-400",
+    bg: "bg-amber-500/10 border-amber-500/20",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Datos privados",
+    desc: "Cada administrador ve únicamente su información.",
+    color: "text-violet-400",
+    bg: "bg-violet-500/10 border-violet-500/20",
+  },
+];
+
 export default function LoginPage() {
   const nav = useNavigate();
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string>("");
+  const [visible, setVisible]   = useState(false);
 
-  const canSubmit = useMemo(() => {
-    return email.trim().length > 3 && password.length > 0 && !loading;
-  }, [email, password, loading]);
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 40);
+    return () => clearTimeout(t);
+  }, []);
+
+  const canSubmit = useMemo(
+    () => email.trim().length > 3 && password.length > 0 && !loading,
+    [email, password, loading],
+  );
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
       const data = await apiFetch<LoginResp>("/auth/login", {
         method: "POST",
@@ -31,7 +69,6 @@ export default function LoginPage() {
         skipAuth: true,
         body: JSON.stringify({ email, password }),
       });
-
       setToken(data.token);
       nav("/dashboard", { replace: true });
     } catch (err: any) {
@@ -43,76 +80,114 @@ export default function LoginPage() {
 
   return (
     <div className="auth-shell">
-      <div className="auth-layout">
-        {/* Panel marketing (solo desktop) */}
-        <section className="promo" aria-hidden="true">
-          <div className="promo-inner">
-            <div className="promo-badge">
-              <span>●</span>
-              <span>Gestión de suscripciones</span>
+      {/* Ambient light blobs */}
+      <div className="auth-orb auth-orb-1" aria-hidden="true" />
+      <div className="auth-orb auth-orb-2" aria-hidden="true" />
+
+      {/* Main layout */}
+      <div
+        className={`auth-content grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 items-stretch transition-all duration-700 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+      >
+        {/* Left panel: promo */}
+        <section
+          className="hidden lg:flex flex-col justify-between rounded-3xl border border-white/7 bg-white/2.5 backdrop-blur-xl overflow-hidden p-8"
+          aria-hidden="true"
+        >
+          <div>
+            {/* Status badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-white/65 text-[11px] font-medium mb-7">
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-emerald-400"
+                style={{ boxShadow: "0 0 6px rgba(52,211,153,.75)" }}
+              />
+              Gestión de suscripciones en streaming
             </div>
 
-            <h2 className="promo-title">
+            {/* Headline */}
+            <h2 className="text-[2rem] font-bold leading-[1.1] tracking-tight text-white mb-3">
               Administre sus clientes
-              <br />y sus cuentas sin enredos.
+              <br />
+              <span className="text-white/45">y sus cuentas sin enredos.</span>
             </h2>
 
-            <p className="promo-sub">
-              Registre servicios (Netflix, Spotify, etc.), asigne cuentas a clientes, controle cupos
-              y cobros, y maneje promociones como “pague 3 meses y el 4to va gratis”.
+            {/* Subtitle */}
+            <p className="text-[13px] text-white/50 leading-relaxed mb-8 max-w-[50ch]">
+              Registre servicios, asigne cuentas, controle cupos y cobros, y maneje
+              promociones tipo "pague 3 meses y el 4to va gratis".
             </p>
 
-            <div className="promo-grid">
-              <div className="promo-card">
-                <b>Clientes y cuentas</b>
-                <span>Asigne varias cuentas a un cliente y mantenga todo ordenado.</span>
-              </div>
-
-              <div className="promo-card">
-                <b>Cobros claros</b>
-                <span>Sepa quién pagó, quién debe y cuánto entra por mes.</span>
-              </div>
-
-              <div className="promo-card">
-                <b>Promociones automáticas</b>
-                <span>Configure combos y el sistema aplica meses gratis cuando corresponde.</span>
-              </div>
-
-              <div className="promo-card">
-                <b>Datos privados</b>
-                <span>Cada administrador ve únicamente su información.</span>
-              </div>
+            {/* Feature grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {FEATURES.map(({ icon: Icon, title, desc, color, bg }) => (
+                <div
+                  key={title}
+                  className="p-4 rounded-2xl border border-white/6 bg-white/3 hover:bg-white/5.5 transition-colors duration-200"
+                >
+                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center mb-3 ${bg}`}>
+                    <Icon size={15} strokeWidth={1.9} className={color} />
+                  </div>
+                  <p className="text-[12.5px] font-semibold text-white/85 mb-1 leading-snug">{title}</p>
+                  <p className="text-[11.5px] text-white/40 leading-relaxed">{desc}</p>
+                </div>
+              ))}
             </div>
+          </div>
+
+          {/* Panel footer */}
+          <div className="mt-8 pt-5 border-t border-white/6 flex items-center justify-between">
+            <span className="text-[11px] text-white/25">SubsManager v0.1</span>
+            <span className="text-[11px] text-white/25">Acceso seguro</span>
           </div>
         </section>
 
-        {/* Card Login */}
-        <form className="auth-card" onSubmit={onSubmit}>
-          <div className="auth-head">
-            <div className="brand">
-              {/* ✅ Logo real */}
-              <img
-                src="/assets/brand/subsmanager-icon.png"
-                alt="SubsManager"
-                className="brandLogo"
-                draggable={false}
-              />
-
+        {/* Right panel: login card */}
+        <form
+          className="flex flex-col rounded-3xl border border-white/10 bg-black/32 backdrop-blur-xl shadow-[0_32px_80px_rgba(0,0,0,.55)] overflow-hidden"
+          onSubmit={onSubmit}
+          noValidate
+        >
+          {/* Card header */}
+          <div className="px-8 pt-8 pb-6 border-b border-white/7">
+            {/* Brand row */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-white/12 bg-white/6 flex items-center justify-center">
+                <img
+                  src="/assets/brand/subsmanager-icon.png"
+                  alt="SubsManager"
+                  className="w-full h-full object-cover"
+                  style={{ transform: "scale(1.85)", transformOrigin: "center" }}
+                  draggable={false}
+                />
+              </div>
               <div>
-                <h1>SubsManager</h1>
-                <p>Acceso de administrador</p>
+                <p className="text-[14px] font-bold text-white tracking-tight leading-none">SubsManager</p>
+                <p className="text-[11px] text-white/40 mt-0.75">Acceso de administrador</p>
               </div>
             </div>
+
+            {/* Welcome text */}
+            <h1 className="text-[22px] font-bold text-white tracking-tight leading-tight">
+              Bienvenido de nuevo
+            </h1>
+            <p className="text-[13px] text-white/45 mt-1.5">Ingrese sus credenciales para continuar</p>
           </div>
 
-          <div className="auth-body">
-            <div className="field">
-              <div className="label">Email</div>
-              <div className="input-wrap">
+          {/* Card body */}
+          <div className="px-8 pt-7 pb-8 flex flex-col gap-5 flex-1">
+
+            {/* Email field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-white/50 uppercase tracking-widest">
+                Correo electrónico
+              </label>
+              <div className={`input-focus-wrap flex items-center rounded-xl border transition-all duration-200 ${error ? "border-red-500/40 bg-red-500/6" : "border-white/10 bg-white/5"}`}>
+                <span className="pl-3.5 text-white/30 shrink-0">
+                  <Mail size={14} strokeWidth={1.8} />
+                </span>
                 <input
-                  className="input"
+                  className="w-full px-3 py-3.5 bg-transparent border-0 outline-none text-white/90 text-[14px]"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
                   type="email"
                   placeholder="admin@correo.com"
                   required
@@ -121,55 +196,59 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="field">
-              <div className="label">Contraseña</div>
-              <div className="input-wrap">
+            {/* Password field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-white/50 uppercase tracking-widest">
+                Contraseña
+              </label>
+              <div className={`input-focus-wrap flex items-center rounded-xl border transition-all duration-200 ${error ? "border-red-500/40 bg-red-500/6" : "border-white/10 bg-white/5"}`}>
+                <span className="pl-3.5 text-white/30 shrink-0">
+                  <Lock size={14} strokeWidth={1.8} />
+                </span>
                 <input
-                  className="input"
+                  className="w-full px-3 py-3.5 bg-transparent border-0 outline-none text-white/90 text-[14px]"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
                   type={showPass ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="········"
                   required
                   autoComplete="current-password"
                 />
-
                 <button
                   type="button"
-                  className="icon-btn"
                   onClick={() => setShowPass((v) => !v)}
+                  className="pr-3.5 pl-2 text-white/30 hover:text-white/65 transition-colors duration-150 shrink-0"
                   aria-label={showPass ? "Ocultar contraseña" : "Mostrar contraseña"}
-                  title={showPass ? "Ocultar" : "Mostrar"}
                 >
-                  {showPass ? (
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                      <path
-                        fill="currentColor"
-                        d="M2.1 3.51 3.5 2.1 21.9 20.49 20.49 21.9l-2.25-2.25A11.1 11.1 0 0 1 12 21C6.6 21 2.2 17.9 0 12c.84-2.21 2.11-4.1 3.7-5.56L2.1 3.51ZM12 19c1.7 0 3.3-.44 4.68-1.23l-1.6-1.6A4.99 4.99 0 0 1 7.83 8.92L6.33 7.42A9.16 9.16 0 0 0 2.2 12C3.99 16.38 7.7 19 12 19Zm0-14c5.4 0 9.8 3.1 12 9a14.9 14.9 0 0 1-3.1 4.92l-1.45-1.45A12.66 12.66 0 0 0 21.8 14C20.01 9.62 16.3 7 12 7c-.87 0-1.72.1-2.53.3L8.04 5.87C9.29 5.3 10.61 5 12 5Zm0 4a3 3 0 0 1 3 3c0 .34-.06.67-.16.98l-3.82-3.82c.31-.1.64-.16.98-.16Zm-3 3a3 3 0 0 1 3-3c.34 0 .67.06.98.16L9.16 13c-.1-.31-.16-.64-.16-.98Z"
-                      />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                      <path
-                        fill="currentColor"
-                        d="M12 5c5.4 0 9.8 3.1 12 9-2.2 5.9-6.6 9-12 9S2.2 18.9 0 14c2.2-5.9 6.6-9 12-9Zm0 16c4.3 0 8-2.62 9.8-7-1.8-4.38-5.5-7-9.8-7-4.3 0-8 2.62-9.8 7 1.8 4.38 5.5 7 9.8 7Zm0-12a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
-                      />
-                    </svg>
-                  )}
+                  {showPass ? <EyeOff size={14} strokeWidth={1.8} /> : <Eye size={14} strokeWidth={1.8} />}
                 </button>
               </div>
             </div>
 
-            <div className="row">
-              <div className="helper">v0.1</div>
-            </div>
+            {/* Error message */}
+            {error && (
+              <div className="login-error-in flex items-start gap-2.5 px-3.5 py-3 rounded-xl border border-red-500/25 bg-red-500/8 text-red-300 text-[13px] leading-relaxed">
+                <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" className="mt-px text-red-400 shrink-0" aria-hidden="true">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                </svg>
+                {error}
+              </div>
+            )}
 
-            {error && <div className="error">{error}</div>}
-
-            <button className="btn" type="submit" disabled={!canSubmit}>
-              {loading && <span className="spinner" />}
-              {loading ? "Validando..." : "Entrar"}
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="btn-premium mt-1 w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-xl font-semibold text-[14.5px] text-white transition-all duration-200"
+            >
+              {loading && <Loader2 size={15} strokeWidth={2.5} className="animate-spin" />}
+              <span>{loading ? "Entrando…" : "Entrar al sistema"}</span>
             </button>
+
+            {/* Footer note */}
+            <p className="text-center text-[11px] text-white/20 pt-1">
+              Plataforma privada · Solo acceso autorizado
+            </p>
           </div>
         </form>
       </div>
