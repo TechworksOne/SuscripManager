@@ -24,8 +24,8 @@ const FEATURES = [
   },
   {
     icon: Zap,
-    title: "Promociones automáticas",
-    desc: "Configure combos y el sistema aplica meses gratis cuando corresponde.",
+    title: "Cobros rápidos",
+    desc: "Registre pagos en lote por cliente con método y nota opcional.",
     color: "text-amber-400",
     bg: "bg-amber-500/10 border-amber-500/20",
   },

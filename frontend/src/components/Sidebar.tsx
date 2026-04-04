@@ -4,7 +4,6 @@ import {
   Layers,
   CreditCard,
   Users,
-  Package,
   Wallet,
   History,
   ChevronLeft,
@@ -56,12 +55,6 @@ const NAV: NavItem[] = [
     label: "Cobranza",
     Icon: Wallet,
     accent: "#fbbf24",
-  },
-  {
-    to: "/combos",
-    label: "Combos",
-    Icon: Package,
-    accent: "#34d399",
   },
   {
     to: "/historial-cobros",

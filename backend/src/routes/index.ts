@@ -3,7 +3,6 @@ import { Router } from "express";
 import authRoutes from "./auth.routes";
 import clientesRoutes from "./clientes.routes";
 import cobrosRoutes from "./cobros.routes";
-import combosRoutes from "./combos.routes";
 import cuentasRoutes from "./cuentas.routes";
 import dashboardRoutes from "./dashboard.routes";
 import serviciosRoutes from "./servicios.routes";
@@ -37,6 +36,5 @@ router.use("/cuentas", cuentasRoutes);
 router.use("/suscripciones", suscripcionesRoutes);
 router.use("/cobros", cobrosRoutes);
 router.use("/cobranza", cobrosRoutes);
-router.use("/combos", combosRoutes);
 
 export default router;

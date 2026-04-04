@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS suscripciones (
   dia_cobro INT DEFAULT 1,
   proximo_cobro DATE,
   fecha_inicio DATE,
+  pin_perfil VARCHAR(10) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -82,34 +83,6 @@ CREATE TABLE IF NOT EXISTS suscripciones (
   INDEX idx_cliente_id (cliente_id),
   INDEX idx_cuenta_id (cuenta_id),
   INDEX idx_estado (estado)
-);
-
--- Crear tabla combos
-CREATE TABLE IF NOT EXISTS combos (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  usuario_id INT,
-  nombre VARCHAR(255) NOT NULL,
-  tipo VARCHAR(50) DEFAULT 'BUNDLE',
-  estado VARCHAR(50) DEFAULT 'ACTIVO',
-  pricing_modo VARCHAR(50) DEFAULT 'FIJO',
-  pricing_valor DECIMAL(10, 2) DEFAULT 0,
-  promo_paga_meses INT,
-  promo_regala_meses INT,
-  promo_acumulable TINYINT DEFAULT 1,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_estado (estado)
-);
-
--- Crear tabla combo_servicios
-CREATE TABLE IF NOT EXISTS combo_servicios (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  combo_id INT NOT NULL,
-  servicio_id INT NOT NULL,
-  usuario_id INT,
-  FOREIGN KEY (combo_id) REFERENCES combos(id) ON DELETE CASCADE,
-  FOREIGN KEY (servicio_id) REFERENCES servicios(id) ON DELETE CASCADE,
-  UNIQUE KEY unique_combo_servicio (combo_id, servicio_id)
 );
 
 -- Crear tabla cobros

@@ -60,30 +60,6 @@ type ClienteCobranzaGroup = {
 };
 
 /* =========================
-   Combos (para aplicar en cobros)
-========================= */
-type ComboTipoDB = "BUNDLE" | "PROMO";
-type ComboEstado = "ACTIVO" | "INACTIVO";
-type ComboPricingModo = "FIJO" | "PORCENTAJE";
-
-type ComboServicio = { id: number; nombre?: string | null };
-type Combo = {
-  id: number;
-  nombre: string;
-  tipo: ComboTipoDB;
-  estado: ComboEstado;
-
-  pricing_modo: ComboPricingModo;
-  pricing_valor: number;
-
-  promo_paga_meses: number | null;
-  promo_regala_meses: number | null;
-  promo_acumulable: number;
-
-  servicios?: ComboServicio[] | number[];
-};
-
-/* =========================
    Helpers
 ========================= */
 function toNum(v: any) {
@@ -109,56 +85,6 @@ function pickMinDate(a?: string | null, b?: string | null) {
 function errMsg(e: unknown) {
   if (typeof e === "object" && e && "message" in e) return String((e as any).message);
   return "Error inesperado";
-}
-
-function comboServicioIds(c: Combo): number[] {
-  const s = c.servicios || [];
-  if (!Array.isArray(s)) return [];
-  return (s as any[])
-    .map((x) => (typeof x === "number" ? x : Number(x?.id)))
-    .filter((n) => Number.isFinite(n));
-}
-
-function isBundleApplicable(combo: Combo, selectedServicioIds: number[]) {
-  if (combo.tipo !== "BUNDLE") return false;
-  const need = comboServicioIds(combo);
-  if (need.length === 0) return false;
-  const have = new Set(selectedServicioIds);
-  return need.every((id) => have.has(id));
-}
-
-/**
- * ✅ Calcula el MENSUAL con BUNDLE (no multiplicar meses aquí)
- * - FIJO: pricing_valor se interpreta como precio mensual del bundle
- * - PORCENTAJE: descuento sobre base mensual
- */
-function calcBundleMensual(combo: Combo, baseMensual: number) {
-  const pv = Number(combo.pricing_valor || 0);
-  if (!Number.isFinite(pv) || pv <= 0) return baseMensual;
-
-  if (combo.pricing_modo === "FIJO") return pv;
-
-  const pct = pv;
-  if (!Number.isFinite(pct) || pct <= 0 || pct >= 100) return baseMensual;
-  return Math.max(0, baseMensual * (1 - pct / 100));
-}
-
-/**
- * ✅ Promo con acumulación (igual que backend):
- * - acumulable=1: floor(mesesPagados/paga)*regala
- * - acumulable=0: regala una vez si cumple
- */
-function calcPromo(mesesPagados: number, combo: Combo) {
-  const paga = Number(combo.promo_paga_meses || 0);
-  const regala = Number(combo.promo_regala_meses || 0);
-  const acumulable = Number(combo.promo_acumulable || 0);
-
-  if (!Number.isFinite(paga) || paga <= 0) return { mesesRegalados: 0, mesesTotales: mesesPagados };
-  if (!Number.isFinite(regala) || regala <= 0) return { mesesRegalados: 0, mesesTotales: mesesPagados };
-  if (mesesPagados < paga) return { mesesRegalados: 0, mesesTotales: mesesPagados };
-
-  const mesesRegalados = acumulable === 1 ? Math.floor(mesesPagados / paga) * regala : regala;
-  return { mesesRegalados, mesesTotales: mesesPagados + mesesRegalados };
 }
 
 /* =========================
@@ -249,10 +175,6 @@ export default function CobranzaPage() {
   // servicios
   const [servicios, setServicios] = useState<Servicio[]>([]);
 
-  // combos
-  const [combos, setCombos] = useState<Combo[]>([]);
-  const [combosLoading, setCombosLoading] = useState(false);
-
   // ===== Cobrar =====
   const [loading, setLoading] = useState(false);
   const [rawItems, setRawItems] = useState<ParaCobrarItem[]>([]);
@@ -260,6 +182,7 @@ export default function CobranzaPage() {
   const [q, setQ] = useState("");
   const [servicioId, setServicioId] = useState<number | "">("");
   const [diaCobro, setDiaCobro] = useState<string>("");
+  const [diaCobroFecha, setDiaCobroFecha] = useState<string>("");
 
   // modal
   const [openCobro, setOpenCobro] = useState(false);
@@ -267,12 +190,12 @@ export default function CobranzaPage() {
   const [targetCliente, setTargetCliente] = useState<ClienteCobranzaGroup | null>(null);
 
   const [mesesPagados, setMesesPagados] = useState<string>("1");
+  const [mesGratisCobro, setMesGratisCobro] = useState(false);
   const [metodo, setMetodo] = useState<"EFECTIVO" | "TRANSFERENCIA" | "OTRO">("EFECTIVO");
   const [boleta, setBoleta] = useState<string>("");
   const [nota, setNota] = useState<string>("");
 
   const [selectedSubs, setSelectedSubs] = useState<Record<number, boolean>>({});
-  const [comboId, setComboId] = useState<number | "">("");
 
   // ✅ AbortController para cancelar requests viejos
   const abortRef = useRef<AbortController | null>(null);
@@ -287,23 +210,6 @@ export default function CobranzaPage() {
         // ok
       }
     })();
-  }, []);
-
-  async function loadCombos() {
-    setCombosLoading(true);
-    try {
-      const res = await apiFetch<any>(`/combos?estado=ACTIVO`, { method: "GET" });
-      const items: Combo[] = (res?.items || res || []) as Combo[];
-      setCombos(Array.isArray(items) ? items : []);
-    } catch {
-      setCombos([]);
-    } finally {
-      setCombosLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadCombos();
   }, []);
 
   async function loadParaCobrar() {
@@ -418,10 +324,10 @@ export default function CobranzaPage() {
   function openRegistrarCobroCliente(c: ClienteCobranzaGroup) {
     setTargetCliente(c);
     setMesesPagados("1");
+    setMesGratisCobro(false);
     setMetodo("EFECTIVO");
     setBoleta("");
     setNota("");
-    setComboId("");
 
     const sel: Record<number, boolean> = {};
     for (const s of c.subs) sel[s.suscripcion_id] = true;
@@ -435,10 +341,6 @@ export default function CobranzaPage() {
     return targetCliente.subs.filter((s) => selectedSubs[s.suscripcion_id]);
   }, [targetCliente, selectedSubs]);
 
-  const selectedServicioIds = useMemo(() => {
-    return selectedList.map((s) => Number(s.servicio_id)).filter((n) => Number.isFinite(n));
-  }, [selectedList]);
-
   const subtotalSeleccionadoMensual = useMemo(() => {
     return selectedList.reduce((acc, s) => acc + Number(s.precio_mensual || 0), 0);
   }, [selectedList]);
@@ -448,58 +350,7 @@ export default function CobranzaPage() {
     return Number.isFinite(m) && m > 0 ? m : 1;
   }, [mesesPagados]);
 
-  const comboSelected = useMemo(() => {
-    if (comboId === "") return null;
-    return combos.find((c) => c.id === comboId) || null;
-  }, [comboId, combos]);
-
-  const combosAplicables = useMemo(() => {
-    const act = combos.filter((c) => c.estado === "ACTIVO");
-    const bundleOk = act.filter((c) => c.tipo === "BUNDLE" && isBundleApplicable(c, selectedServicioIds));
-    const promoOk = act.filter((c) => c.tipo === "PROMO");
-    return { bundleOk, promoOk };
-  }, [combos, selectedServicioIds]);
-
-  useEffect(() => {
-    if (!comboSelected) return;
-    if (comboSelected.tipo === "BUNDLE") {
-      if (!isBundleApplicable(comboSelected, selectedServicioIds)) setComboId("");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedServicioIds]);
-
   const baseTotal = useMemo(() => subtotalSeleccionadoMensual * months, [subtotalSeleccionadoMensual, months]);
-
-  const preview = useMemo(() => {
-    let montoFinal = baseTotal;
-    let mesesRegalados = 0;
-    let mesesTotales = months;
-    let detalle = "Sin combo";
-
-    if (!comboSelected) return { montoFinal, mesesRegalados, mesesTotales, detalle };
-
-    if (comboSelected.tipo === "BUNDLE") {
-      const mensual = calcBundleMensual(comboSelected, subtotalSeleccionadoMensual);
-      montoFinal = mensual * months;
-      mesesRegalados = 0;
-      mesesTotales = months;
-      detalle =
-        comboSelected.pricing_modo === "FIJO"
-          ? `Combo BUNDLE (precio mensual fijo ${money(comboSelected.pricing_valor)})`
-          : `Combo BUNDLE (descuento ${comboSelected.pricing_valor}%)`;
-    } else if (comboSelected.tipo === "PROMO") {
-      const promo = calcPromo(months, comboSelected);
-      mesesRegalados = promo.mesesRegalados;
-      mesesTotales = promo.mesesTotales;
-      montoFinal = baseTotal;
-      detalle =
-        comboSelected.promo_acumulable === 1
-          ? `Promo acumulable: paga ${comboSelected.promo_paga_meses} y se regala ${comboSelected.promo_regala_meses}`
-          : `Promo: paga ${comboSelected.promo_paga_meses} y se regala ${comboSelected.promo_regala_meses}`;
-    }
-
-    return { montoFinal, mesesRegalados, mesesTotales, detalle };
-  }, [comboSelected, baseTotal, months, subtotalSeleccionadoMensual]);
 
   async function onSubmitCobroLote(e: React.FormEvent) {
     e.preventDefault();
@@ -509,9 +360,7 @@ export default function CobranzaPage() {
     if (!Number.isFinite(mp) || mp < 1 || mp > 12) return pushToast("error", "Meses pagados inválido (1..12)");
     if (selectedList.length === 0) return pushToast("error", "Seleccione al menos un servicio para cobrar");
 
-    if (comboSelected?.tipo === "BUNDLE" && !isBundleApplicable(comboSelected, selectedServicioIds)) {
-      return pushToast("error", "El combo seleccionado no aplica a los servicios marcados.");
-    }
+    const mesesEfectivos = mp + (mesGratisCobro && mp % 3 === 0 ? 1 : 0);
 
     setSavingCobro(true);
     try {
@@ -519,20 +368,18 @@ export default function CobranzaPage() {
         method: "POST",
         body: JSON.stringify({
           suscripcionIds: selectedList.map((s) => s.suscripcion_id),
-          mesesPagados: mp,
+          mesesPagados: mesesEfectivos,
           metodo,
           boleta: metodo === "TRANSFERENCIA" ? boleta.trim() || null : null,
           nota: nota.trim() || null,
-          comboId: comboId === "" ? null : comboId,
         }),
       });
 
-      pushToast("success", `Cobro registrado (${selectedList.length} servicio(s))`);
+      pushToast("success", `Cobro registrado (${selectedList.length} servicio(s))${ mesGratisCobro && mp % 3 === 0 ? " — ¡+1 mes gratis!" : ""}`);
 
       setOpenCobro(false);
       setTargetCliente(null);
       setSelectedSubs({});
-      setComboId("");
 
       await loadParaCobrar();
     } catch (e: unknown) {
@@ -544,7 +391,7 @@ export default function CobranzaPage() {
               method: "POST",
               body: JSON.stringify({
                 suscripcionId: s.suscripcion_id,
-                mesesPagados: mp,
+                mesesPagados: mesesEfectivos,
                 metodo,
                 boleta: metodo === "TRANSFERENCIA" ? boleta.trim() || null : null,
                 nota: nota.trim() || null,
@@ -557,7 +404,6 @@ export default function CobranzaPage() {
         setOpenCobro(false);
         setTargetCliente(null);
         setSelectedSubs({});
-        setComboId("");
         await loadParaCobrar();
       } catch (e2: unknown) {
         pushToast("error", errMsg(e2));
@@ -681,6 +527,19 @@ export default function CobranzaPage() {
                         Subtotal mensual: <b className="text-white/70">{money(subtotalSeleccionadoMensual)}</b> · Base:{" "}
                         <b className="text-white/70">{money(baseTotal)}</b>
                       </p>
+                      {months > 0 && months % 3 === 0 && (
+                        <label className="flex items-center gap-2 mt-2.5 cursor-pointer select-none group">
+                          <div className={`relative w-8 h-4 rounded-full border transition-all duration-200 ${mesGratisCobro ? "bg-yellow-500/20 border-yellow-500/35" : "bg-white/8 border-white/12"}`}>
+                            <span className={`absolute top-px w-3 h-3 rounded-full transition-all duration-200 ${mesGratisCobro ? "left-4 bg-yellow-400" : "left-0.5 bg-white/40"}`} />
+                          </div>
+                          <span className="text-[11px] font-semibold text-white/50 group-hover:text-white/75 transition-colors">
+                            Regalar 1 mes gratis por {months} meses
+                            {mesGratisCobro && <span className="ml-1 text-yellow-400/90">(¡+1 mes!)</span>}
+                          </span>
+                          <input type="checkbox" className="sr-only" checked={mesGratisCobro}
+                            onChange={(e) => setMesGratisCobro(e.target.checked)} />
+                        </label>
+                      )}
                     </div>
 
                     <div>
@@ -697,66 +556,6 @@ export default function CobranzaPage() {
                           ]}
                         />
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Combo + Preview */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block mb-1.5 text-xs font-black tracking-wide text-white/60 uppercase">Combo (opcional · 1 o ninguno)</label>
-                      <div className="relative">
-                        <select
-                          className="w-full h-11 pl-3.5 pr-9 rounded-xl border border-white/10 bg-white/5 text-sm text-white appearance-none outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/15 transition-colors cursor-pointer"
-                          value={comboId}
-                          onChange={(e) => setComboId(e.target.value ? Number(e.target.value) : ("" as any))}
-                          disabled={combosLoading}
-                          title="Combo"
-                        >
-                          <option value="">Sin combo</option>
-
-                          {combosAplicables.bundleOk.length > 0 && (
-                            <optgroup label="Combos de Apps (BUNDLE)">
-                              {combosAplicables.bundleOk.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.nombre} ·{" "}
-                                  {c.pricing_modo === "FIJO" ? `${money(c.pricing_valor)}/mes` : `${c.pricing_valor}%`}
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-
-                          {combosAplicables.promoOk.length > 0 && (
-                            <optgroup label="Promos por meses (PROMO)">
-                              {combosAplicables.promoOk.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.nombre} · paga {c.promo_paga_meses} / regala {c.promo_regala_meses}
-                                  {c.promo_acumulable === 1 ? " (acumulable)" : ""}
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                        </select>
-                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
-                      </div>
-                      <p className="mt-1.5 text-xs text-white/40">
-                        {comboId === "" ? "Seleccione un combo si aplica." : "Aplicando 1 combo."}
-                      </p>
-                    </div>
-
-                    {/* Combo preview */}
-                    <div className="rounded-xl border border-white/10 bg-white/4 p-3.5 space-y-0">
-                      {[
-                        { k: "Regla", v: preview.detalle },
-                        { k: "Monto final", v: money(preview.montoFinal) },
-                        { k: "Meses pagados", v: String(months) },
-                        { k: "Meses regalados", v: String(preview.mesesRegalados) },
-                        { k: "Meses totales", v: String(preview.mesesTotales) },
-                      ].map(({ k, v }, i, arr) => (
-                        <div key={k} className={["flex justify-between gap-3 py-2 text-sm", i < arr.length - 1 ? "border-b border-white/7" : ""].join(" ")}>
-                          <span className="text-white/50">{k}</span>
-                          <span className="font-black text-white">{v}</span>
-                        </div>
-                      ))}
                     </div>
                   </div>
 
@@ -810,7 +609,7 @@ export default function CobranzaPage() {
                     {savingCobro ? (
                       <><Loader2 size={14} className="animate-spin" /> Guardando…</>
                     ) : (
-                      <><DollarSign size={14} /> Registrar cobro ({selectedList.length})</>
+                      <><span className="font-black text-base leading-none">Q</span> Registrar cobro ({selectedList.length})</>
                     )}
                   </button>
                 </div>
@@ -870,7 +669,7 @@ export default function CobranzaPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white">Cobranza</h1>
           <p className="mt-1 text-sm text-white/55">
-            1 fila por cliente · cobro en lote · combo opcional
+            1 fila por cliente · cobro en lote
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
@@ -971,14 +770,25 @@ export default function CobranzaPage() {
           </select>
           <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
         </div>
-        <input
-          className="w-full sm:w-32 h-11 px-3.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder:text-white/35 outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/15 transition-colors"
-          value={diaCobro}
-          onChange={(e) => setDiaCobro(clampInt(e.target.value, 1, 31))}
-          placeholder="Día corte"
-          inputMode="numeric"
-          title="Día de cobro"
-        />
+        <div className="relative w-full sm:w-44">
+          <input
+            type="date"
+            className="w-full h-11 px-3.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/15 transition-colors scheme-dark"
+            value={diaCobroFecha}
+            onChange={(e) => {
+              const v = e.target.value;
+              setDiaCobroFecha(v);
+              if (v) setDiaCobro(String(new Date(v + "T00:00:00").getDate()));
+              else setDiaCobro("");
+            }}
+            title="Filtrar por día de cobro"
+          />
+          {diaCobro && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-sky-400 pointer-events-none">
+              Día {diaCobro}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           className="group flex items-center justify-center gap-2 h-11 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-semibold text-white/70 hover:text-white hover:bg-white/8 hover:border-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"
@@ -1122,7 +932,7 @@ export default function CobranzaPage() {
                             : "border-sky-500/30 bg-linear-to-r from-sky-600/60 to-blue-600/60 text-white shadow-lg shadow-sky-900/25 hover:from-sky-500/80 hover:to-blue-500/80 hover:shadow-sky-800/35",
                         ].join(" ")}
                       >
-                        <DollarSign size={14} />
+                        <span className="font-black text-base leading-none">Q</span>
                         Cobrar
                       </button>
                     </td>

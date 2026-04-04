@@ -21,23 +21,6 @@ function asNum(v: any) {
 }
 
 /**
- * Calcula meses gratis según promo.
- * - acumulable=1: aplica por bloques (floor(paga/pagaMeses)*regala)
- * - acumulable=0: aplica solo una vez si cumple (>= pagaMeses)
- */
-function calcMesesGratis(
-  pagaMeses: number,
-  regalaMeses: number,
-  acumulable: number,
-  mesesPagados: number
-) {
-  if (!pagaMeses || !regalaMeses) return 0;
-  if (mesesPagados < pagaMeses) return 0;
-  if (acumulable === 1) return Math.floor(mesesPagados / pagaMeses) * regalaMeses;
-  return regalaMeses; // no acumulable
-}
-
-/**
  * GET /cobros/para-cobrar?q=&servicioId=&diaCobro=
  * Devuelve suscripciones ACTIVA del usuario con datos para cobranza.
  * ✅ NO incluye clientes inactivos (no ocupan cupo, no se cobran)
@@ -223,20 +206,8 @@ router.get("/", auth, async (req, res) => {
  *   mesesPagados: number,
  *   metodo: "EFECTIVO"|"TRANSFERENCIA"|"OTRO",
  *   boleta?: string,
- *   nota?: string,
- *   comboId?: number
+ *   nota?: string
  * }
- *
- * ✅ Regla operativa:
- * - Solo se cobra si:
- *   - suscripción ACTIVA
- *   - cliente activo (cl.activo=1)
- *   - cuenta activa (cu.activa=1)
- *   - servicio activo (sv.activo=1)
- *
- * - Aplica Combo si se manda comboId (precio FIJO o % sobre suma)
- * - Aplica promo de meses gratis si el combo la trae
- * - Inserta 1 cobro por suscripción (auditoría) y actualiza proximo_cobro
  */
 router.post("/lote", auth, async (req, res) => {
   const conn = await pool.getConnection();
@@ -248,7 +219,6 @@ router.post("/lote", auth, async (req, res) => {
     const metodo = String(req.body?.metodo ?? "EFECTIVO").trim().toUpperCase();
     const boleta = req.body?.boleta ? String(req.body.boleta).trim() : null;
     const nota = req.body?.nota ? String(req.body.nota).trim() : null;
-    const comboId = req.body?.comboId ? asInt(req.body.comboId) : null;
 
     if (!Array.isArray(suscripcionIdsRaw) || suscripcionIdsRaw.length === 0) {
       return res.status(400).json({ message: "suscripcionIds requerido" });
@@ -313,86 +283,14 @@ router.post("/lote", auth, async (req, res) => {
       0
     );
 
-    // 2) Si hay combo, validarlo y calcular pricing + promo
-    let montoTotal = sumMensual * mesesPagados;
-    let mesesGratis = 0;
+    const montoTotal = sumMensual * mesesPagados;
 
-    if (comboId) {
-      const [[combo]]: any = await conn.query(
-        `
-        SELECT
-          id, tipo, estado,
-          pricing_modo, pricing_valor,
-          promo_paga_meses, promo_regala_meses, promo_acumulable
-        FROM combos
-        WHERE id = ? AND usuario_id = ? AND estado = 'ACTIVO'
-        LIMIT 1
-        `,
-        [comboId, usuarioId]
-      );
-
-      if (!combo) {
-        await conn.rollback();
-        return res.status(400).json({ message: "Combo inválido o inactivo" });
-      }
-
-      // validar que todas las suscripciones pertenezcan a servicios del combo
-      const servicioIds = Array.from(
-        new Set(subs.map((s: any) => Number(s.servicio_id)))
-      );
-
-      const [rowsServ]: any = await conn.query(
-        `
-        SELECT cs.servicio_id
-        FROM combo_servicios cs
-        WHERE cs.combo_id = ? AND cs.usuario_id = ?
-        `,
-        [comboId, usuarioId]
-      );
-
-      const allowed = new Set((rowsServ || []).map((r: any) => Number(r.servicio_id)));
-
-      const ok = servicioIds.every((sid) => allowed.has(sid));
-      if (!ok) {
-        await conn.rollback();
-        return res
-          .status(400)
-          .json({ message: "El combo no aplica a uno o más servicios seleccionados" });
-      }
-
-      // pricing bundle (% o fijo) sobre la suma mensual
-      const modo = String(combo.pricing_modo || "FIJO").toUpperCase();
-      const val = asNum(combo.pricing_valor);
-
-      if (modo === "FIJO") {
-        if (!Number.isFinite(val) || val <= 0) {
-          await conn.rollback();
-          return res.status(400).json({ message: "Combo con pricing_valor inválido" });
-        }
-        montoTotal = val * mesesPagados;
-      } else if (modo === "PORCENTAJE") {
-        if (!Number.isFinite(val) || val <= 0 || val >= 100) {
-          await conn.rollback();
-          return res.status(400).json({ message: "Combo con porcentaje inválido" });
-        }
-        montoTotal = sumMensual * (1 - val / 100) * mesesPagados;
-      }
-
-      // promo meses gratis (si aplica)
-      const paga = asInt(combo.promo_paga_meses);
-      const regala = asInt(combo.promo_regala_meses);
-      const acumulable = asInt(combo.promo_acumulable);
-
-      mesesGratis = calcMesesGratis(paga, regala, acumulable, mesesPagados);
-    }
-
-    // 3) Repartir montoTotal proporcional al precio_mensual (auditoría por suscripción)
+    // Repartir montoTotal proporcional al precio_mensual (auditoría por suscripción)
     //    si sumMensual = 0, se reparte igual.
     const basePeso = sumMensual > 0 ? sumMensual : subs.length;
 
     // baseFecha por suscripción: si pago temprano -> desde proximo_cobro; si atrasado/null -> desde hoy
-    // y se suma mesesPagados + mesesGratis
-    const mesesEfectivos = mesesPagados + (mesesGratis || 0);
+    const mesesEfectivos = mesesPagados;
 
     const created: any[] = [];
 
@@ -468,7 +366,6 @@ router.post("/lote", auth, async (req, res) => {
     return res.status(201).json({
       ok: true,
       mesesPagados,
-      mesesGratis,
       mesesEfectivos,
       montoTotal: Number(montoTotal.toFixed(2)),
       items: created,

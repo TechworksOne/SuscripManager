@@ -197,6 +197,7 @@ export default function CuentasPage() {
   const [tarjetaNombre, setTarjetaNombre] = useState("");
   const [tarjetaLast4, setTarjetaLast4] = useState("");
   const [diaPago, setDiaPago] = useState("");
+  const [diaPagoFecha, setDiaPagoFecha] = useState("");
 
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [payingId, setPayingId] = useState<number | null>(null);
@@ -336,6 +337,7 @@ export default function CuentasPage() {
     setTarjetaNombre("");
     setTarjetaLast4("");
     setDiaPago("");
+    setDiaPagoFecha("");
   }
 
   function openCreate() {
@@ -358,7 +360,9 @@ export default function CuentasPage() {
 
     setTarjetaNombre(c.tarjeta_nombre ? String(c.tarjeta_nombre) : "");
     setTarjetaLast4(c.tarjeta_last4 ? String(c.tarjeta_last4) : "");
-    setDiaPago(c.dia_pago ? String(c.dia_pago) : "");
+    const dpStr = c.dia_pago ? String(c.dia_pago) : "";
+    setDiaPago(dpStr);
+    setDiaPagoFecha(""); // fecha picker no se pre-rellena en edición (solo extrae el día)
 
     setModalTab("cuenta");
     setOpen(true);
@@ -1105,18 +1109,27 @@ export default function CuentasPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <FieldLabel>Día de pago (1–31)</FieldLabel>
+                          <FieldLabel>Día de pago</FieldLabel>
                           <input
-                            className={inputCls}
-                            value={diaPago}
-                            onChange={(e) => setDiaPago(clampDay(e.target.value))}
-                            inputMode="numeric"
-                            placeholder="15"
-                            maxLength={2}
+                            type="date"
+                            className={inputCls + " scheme-dark"}
+                            value={diaPagoFecha}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setDiaPagoFecha(v);
+                              if (v) setDiaPago(String(new Date(v + "T00:00:00").getDate()));
+                              else setDiaPago("");
+                            }}
                           />
-                          <p className="text-[11px] text-white/30 mt-1.5 font-medium">
-                            Genera próximo pago automáticamente.
-                          </p>
+                          {diaPago ? (
+                            <p className="text-[11px] text-white/40 mt-1.5 font-medium">
+                              Genera próximo pago cada día <span className="text-white/65 font-bold">{diaPago}</span> del mes
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-white/30 mt-1.5 font-medium">
+                              Genera próximo pago automáticamente.
+                            </p>
+                          )}
                         </div>
                         <div>
                           <FieldLabel>Referencia interna</FieldLabel>

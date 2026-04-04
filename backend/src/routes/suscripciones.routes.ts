@@ -44,6 +44,21 @@ function calcProximoCobro(diaCobro: number, base = new Date()) {
   return toDateOnlyISO(new Date(y, m0, day));
 }
 
+/**
+ * Avanza una fecha ISO por N meses, respetando el día de cobro (clamped al último día del mes).
+ */
+function addMonthsToDate(isoDate: string, months: number, diaCobro: number): string {
+  if (months <= 0) return isoDate;
+  const base = new Date(isoDate + "T00:00:00");
+  const targetMonth0 = base.getMonth() + months;
+  const dt = new Date(base.getFullYear(), targetMonth0, 1);
+  const y = dt.getFullYear();
+  const m0 = dt.getMonth();
+  const dim = daysInMonth(y, m0);
+  const day = Math.min(diaCobro, dim);
+  return toDateOnlyISO(new Date(y, m0, day));
+}
+
 function getUserId(req: any) {
   const id = req.user?.id;
   if (!id) throw new Error("No autorizado");
@@ -80,6 +95,7 @@ router.get("/clientes/:clienteId/suscripciones", auth, async (req, res) => {
           s.estado_cobro,
           s.precio_mensual,
           s.dia_cobro,
+          s.pin_perfil,
           DATE_FORMAT(s.proximo_cobro, '%Y-%m-%d') AS proximo_cobro,
           DATE_FORMAT(s.fecha_inicio,  '%Y-%m-%d') AS fecha_inicio,
 
@@ -107,7 +123,7 @@ router.get("/clientes/:clienteId/suscripciones", auth, async (req, res) => {
 
 /**
  * ✅ POST /api/suscripciones
- * Body: { clienteId, cuentaId, precioMensual, diaCobro, fechaInicio? }
+ * Body: { clienteId, cuentaId, precioMensual, diaCobro, fechaInicio?, pin_perfil? }
  *
  * Regla de negocio (moderna):
  * - Cupo ocupado = suscripciones ACTIVA/PAUSADA con cliente ACTIVO.
@@ -126,6 +142,21 @@ router.post("/", auth, async (req, res) => {
     const fechaInicio = req.body?.fechaInicio
       ? String(req.body.fechaInicio)
       : toDateOnlyISO(new Date());
+
+    // mesesYaPagados: cuántos meses ya abonó el cliente (avanza proximo_cobro)
+    const mesesYaPagadosRaw = asInt(req.body?.mesesYaPagados ?? 0);
+    const mesesYaPagados = Number.isFinite(mesesYaPagadosRaw) && mesesYaPagadosRaw > 0
+      ? Math.min(mesesYaPagadosRaw, 120)
+      : 0;
+
+    // pin_perfil: opcional, 4-6 dígitos
+    const pinPerfilRaw = req.body?.pin_perfil != null ? String(req.body.pin_perfil).trim() : null;
+    if (pinPerfilRaw !== null && pinPerfilRaw !== "") {
+      if (!/^\d{4,6}$/.test(pinPerfilRaw)) {
+        return res.status(400).json({ ok: false, error: "pin_perfil inválido (solo números, 4 a 6 dígitos)" });
+      }
+    }
+    const pinPerfil = pinPerfilRaw === "" ? null : pinPerfilRaw;
 
     if (
       !Number.isFinite(clienteId) ||
@@ -209,15 +240,18 @@ router.post("/", auth, async (req, res) => {
       });
     }
 
-    const proximoCobro = calcProximoCobro(diaCobro, new Date());
+    const proximoCobroBase = calcProximoCobro(diaCobro, new Date());
+    const proximoCobro = mesesYaPagados > 0
+      ? addMonthsToDate(proximoCobroBase, mesesYaPagados, diaCobro)
+      : proximoCobroBase;
 
     // 4) Crear suscripción
     const [ins] = await conn.query(
       `INSERT INTO suscripciones
-       (usuario_id, cliente_id, cuenta_id, fecha_inicio, precio_mensual, dia_cobro, estado, proximo_cobro, estado_cobro)
+       (usuario_id, cliente_id, cuenta_id, fecha_inicio, precio_mensual, dia_cobro, estado, proximo_cobro, estado_cobro, pin_perfil)
        VALUES
-       (?, ?, ?, ?, ?, ?, 'ACTIVA', ?, 'AL_DIA')`,
-      [userId, clienteId, cuentaId, fechaInicio, precioMensual, diaCobro, proximoCobro]
+       (?, ?, ?, ?, ?, ?, 'ACTIVA', ?, 'AL_DIA', ?)`,
+      [userId, clienteId, cuentaId, fechaInicio, precioMensual, diaCobro, proximoCobro, pinPerfil]
     );
 
     // 5) ✅ Sincronizar cache de cupo_ocupado (ocupadoReal + 1)
@@ -313,6 +347,47 @@ router.delete("/:id", auth, async (req, res) => {
     return res.status(500).json({ message: "ERROR_ELIMINANDO_SUSCRIPCION", detail: e?.message });
   } finally {
     conn.release();
+  }
+});
+
+/**
+ * PATCH /api/suscripciones/:id/pin
+ * Body: { pin_perfil?: string }
+ * Actualiza el PIN de perfil de una suscripción.
+ */
+router.patch("/:id/pin", auth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const id = asInt(req.params.id);
+
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ ok: false, error: "ID inválido" });
+    }
+
+    const pinPerfilRaw = req.body?.pin_perfil != null ? String(req.body.pin_perfil).trim() : null;
+    if (pinPerfilRaw !== null && pinPerfilRaw !== "") {
+      if (!/^\d{4,6}$/.test(pinPerfilRaw)) {
+        return res.status(400).json({ ok: false, error: "pin_perfil inválido (solo números, 4 a 6 dígitos)" });
+      }
+    }
+    const pinPerfil = pinPerfilRaw === "" ? null : pinPerfilRaw;
+
+    const [rows] = await pool.query(
+      `SELECT id FROM suscripciones WHERE id = ? AND usuario_id = ? LIMIT 1`,
+      [id, userId]
+    );
+    if (!(rows as any[])[0]) {
+      return res.status(404).json({ ok: false, error: "Suscripción no encontrada" });
+    }
+
+    await pool.query(
+      `UPDATE suscripciones SET pin_perfil = ? WHERE id = ? AND usuario_id = ?`,
+      [pinPerfil, id, userId]
+    );
+
+    return res.json({ ok: true });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: "ERROR_ACTUALIZANDO_PIN", detail: e?.message });
   }
 });
 

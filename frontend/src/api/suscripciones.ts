@@ -5,6 +5,9 @@ export type CrearSuscripcionPayload = {
   cuentaId: number;
   precioMensual: number;
   diaCobro: number;
+  fechaInicio?: string;
+  mesesYaPagados?: number;
+  pin_perfil?: string | null;
 };
 
 export async function crearSuscripcion(payload: CrearSuscripcionPayload) {
@@ -12,6 +15,14 @@ export async function crearSuscripcion(payload: CrearSuscripcionPayload) {
   return apiFetch<{ ok: true; suscripcionId: number; proximoCobro: string }>(`/suscripciones`, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function actualizarPinSuscripcion(suscripcionId: number, pin_perfil: string | null) {
+  // backend: PATCH /api/suscripciones/:id/pin
+  return apiFetch<{ ok: true }>(`/suscripciones/${suscripcionId}/pin`, {
+    method: "PATCH",
+    body: JSON.stringify({ pin_perfil }),
   });
 }
 

@@ -7,7 +7,6 @@ const ROUTE_META: Record<string, { title: string; sub: string }> = {
   "/servicios":       { title: "Servicios",           sub: "Gestión de servicios de streaming"          },
   "/cuentas":         { title: "Cuentas",             sub: "Cuentas y credenciales por servicio"        },
   "/clientes":        { title: "Clientes",            sub: "Base de clientes registrados"               },
-  "/combos":          { title: "Combos",              sub: "Paquetes y planes combinados"               },
   "/cobranza":        { title: "Cobranza",            sub: "Gestión y registro de cobros pendientes"    },
   "/historial-cobros":{ title: "Historial de cobros", sub: "Auditoría completa de pagos registrados"    },
 };

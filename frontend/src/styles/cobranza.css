@@ -1,4 +1,4 @@
-/* cobranza.css — companion styles (non-Tailwind only) */
+/* cobranza.css ï¿½ companion styles (non-Tailwind only) */
 
 /* Select option background */
 .cobranzaPage select option {
@@ -6,7 +6,7 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* Custom scrollbar — modal body */
+/* Custom scrollbar ï¿½ modal body */
 .cobranzaPage ::-webkit-scrollbar { width: 5px; }
 .cobranzaPage ::-webkit-scrollbar-track { background: transparent; }
 .cobranzaPage ::-webkit-scrollbar-thumb {
@@ -17,30 +17,11 @@
   background: rgba(255, 255, 255, 0.22);
 }
 
-/* MiniTable inside modal — keep border-radius */
+/* MiniTable inside modal ï¿½ keep border-radius */
 .miniTable { width: 100%; border-collapse: collapse; }
 
 /* Checkbox accent */
 .chk { accent-color: #6366f1; }
-
-/* Combo preview rows */
-.comboBox {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 14px;
-  padding: 12px;
-}
-.comboLine {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  font-size: 13px;
-}
-.comboLine:last-child { border-bottom: 0; }
-.k { color: rgba(255, 255, 255, 0.55); }
-.v { font-weight: 900; }
 
 /* SelectField (custom dropdown used in modal) */
 .cobranzaPage .field { position: relative; }
@@ -82,7 +63,7 @@
 .cobranzaPage .selectOption.active { background:rgba(99,102,241,.20); border-color:rgba(99,102,241,.35); }
 .cobranzaPage .selectOption.active::after { content:"?"; font-weight:900; opacity:.9; }
 
-/* Modal (rendered via Portal – global scope needed) */
+/* Modal (rendered via Portal ï¿½ global scope needed) */
 .modal {
   width: min(960px, 100%);
   max-height: min(88vh, 820px);

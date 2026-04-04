@@ -24,6 +24,7 @@ export type SuscripcionCliente = {
   precio_mensual: number;
   dia_cobro: number;
   estado: "ACTIVA" | "PAUSADA" | "CANCELADA" | "VENCIDA";
+  pin_perfil?: string | null;
 };
 
 export const getClientes = (activo: "all" | "1" | "0" = "all") =>

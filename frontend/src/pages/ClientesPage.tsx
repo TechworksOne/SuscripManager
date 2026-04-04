@@ -24,7 +24,7 @@ import type { Cuenta } from "../api/cuentas";
 import { getCuentas } from "../api/cuentas";
 
 import { apiFetch } from "../api/http";
-import { crearSuscripcion, eliminarSuscripcion } from "../api/suscripciones";
+import { actualizarPinSuscripcion, crearSuscripcion, eliminarSuscripcion } from "../api/suscripciones";
 
 import "../styles/clientes.css";
 
@@ -149,7 +149,16 @@ export default function ClientesPage() {
 
   const [precioMensual, setPrecioMensual] = useState<string>("");
   const [diaCobro, setDiaCobro] = useState<string>("15");
+  const [diaCobroFecha, setDiaCobroFecha] = useState<string>(""); // date picker value (YYYY-MM-DD)
+  const [mesesYaPagados, setMesesYaPagados] = useState<number>(0);
+  const [mesGratisAsignar, setMesGratisAsignar] = useState(false);
+  const [pinPerfil, setPinPerfil] = useState<string>("");
   const [precioTouched, setPrecioTouched] = useState(false);
+
+  // ====== editar PIN inline ======
+  const [editPinId, setEditPinId] = useState<number | null>(null);
+  const [editPinValue, setEditPinValue] = useState<string>("");
+  const [savingPin, setSavingPin] = useState(false);
 
   // ====== Suscripciones del cliente (mostrar) ======
   const [susItems, setSusItems] = useState<SuscripcionCliente[]>([]);
@@ -383,6 +392,10 @@ export default function ClientesPage() {
     setCuentaId("");
     setPrecioMensual("");
     setDiaCobro("15");
+    setDiaCobroFecha("");
+    setMesesYaPagados(0);
+    setMesGratisAsignar(false);
+    setPinPerfil("");
     setPrecioTouched(false);
   }
 
@@ -500,11 +513,18 @@ export default function ClientesPage() {
       }
 
       if (asignarSuscripcion) {
+        const pinVal = pinPerfil.trim();
+        if (pinVal !== "" && !/^\d{4,6}$/.test(pinVal))
+          return pushToast("error", "PIN de perfil inválido (solo números, 4 a 6 dígitos)");
+
         await crearSuscripcion({
           clienteId: clienteIdFinal,
           cuentaId: Number(cuentaId),
           precioMensual: Number(precioMensual),
           diaCobro: Number(diaCobro),
+          fechaInicio: diaCobroFecha || undefined,
+          mesesYaPagados: mesesYaPagados > 0 ? (mesesYaPagados + (mesGratisAsignar && mesesYaPagados % 3 === 0 ? 1 : 0)) : undefined,
+          pin_perfil: pinVal || null,
         });
 
         pushToast("success", "Suscripción asignada");
@@ -567,6 +587,28 @@ export default function ClientesPage() {
     } finally {
       setConfirmLoading(false);
       setSusDeletingId(null);
+    }
+  }
+
+  async function onSavePin(susId: number) {
+    if (savingPin) return;
+    const pinVal = editPinValue.trim();
+    if (pinVal !== "" && !/^\d{4,6}$/.test(pinVal)) {
+      pushToast("error", "PIN inválido (solo números, 4 a 6 dígitos)");
+      return;
+    }
+    setSavingPin(true);
+    try {
+      await actualizarPinSuscripcion(susId, pinVal || null);
+      setSusItems((prev) =>
+        prev.map((s) => s.id === susId ? { ...s, pin_perfil: pinVal || null } : s)
+      );
+      pushToast("success", "PIN actualizado");
+      setEditPinId(null);
+    } catch (e: any) {
+      pushToast("error", e?.message || "No se pudo guardar el PIN");
+    } finally {
+      setSavingPin(false);
     }
   }
 
@@ -923,10 +965,76 @@ export default function ClientesPage() {
                           </div>
 
                           <div>
-                            <FieldLabel>Día de cobro (1–31)</FieldLabel>
-                            <input className={inputCls} value={diaCobro}
-                              onChange={(e) => setDiaCobro(clampInt(e.target.value, 1, 31) || e.target.value)}
-                              inputMode="numeric" required />
+                            <FieldLabel>Día de cobro</FieldLabel>
+                            <input
+                              type="date"
+                              className={inputCls + " scheme-dark"}
+                              value={diaCobroFecha}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setDiaCobroFecha(v);
+                                if (v) setDiaCobro(String(new Date(v + "T00:00:00").getDate()));
+                              }}
+                              required
+                            />
+                            {diaCobro && diaCobroFecha && (
+                              <p className="text-[11px] text-white/35 mt-1.5 font-medium">
+                                Cobro cada día <span className="text-white/60 font-bold">{diaCobro}</span> del mes
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <FieldLabel>Meses ya pagados</FieldLabel>
+                            <div className="flex items-center gap-0">
+                              <button type="button"
+                                onClick={() => setMesesYaPagados((p) => Math.max(0, p - 1))}
+                                className="h-9 w-9 flex items-center justify-center rounded-l-lg border border-r-0 border-white/10 bg-white/5 text-white/50 font-bold text-base hover:bg-white/10 hover:text-white/80 transition-all select-none">−</button>
+                              <div className="h-9 flex-1 flex items-center justify-center border-y border-white/10 bg-white/5 text-white/85 font-bold text-sm min-w-10">
+                                {mesesYaPagados}
+                              </div>
+                              <button type="button"
+                                onClick={() => setMesesYaPagados((p) => Math.min(24, p + 1))}
+                                className="h-9 w-9 flex items-center justify-center rounded-r-lg border border-l-0 border-white/10 bg-white/5 text-white/50 font-bold text-base hover:bg-white/10 hover:text-white/80 transition-all select-none">+</button>
+                            </div>
+                            {mesesYaPagados > 0 && (
+                              <p className="text-[11px] text-emerald-400/80 mt-1.5 font-medium">
+                                Próximo cobro avanza {mesesYaPagados + (mesGratisAsignar && mesesYaPagados % 3 === 0 ? 1 : 0)} {(mesesYaPagados + (mesGratisAsignar && mesesYaPagados % 3 === 0 ? 1 : 0)) === 1 ? "mes" : "meses"}
+                                {mesGratisAsignar && mesesYaPagados % 3 === 0 && (
+                                  <span className="ml-1.5 text-yellow-400/90">(¡+1 gratis!)</span>
+                                )}
+                              </p>
+                            )}
+                            {mesesYaPagados === 0 && (
+                              <p className="text-[11px] text-white/30 mt-1.5 font-medium">
+                                0 = aun no ha pagado este mes
+                              </p>
+                            )}
+                            {mesesYaPagados > 0 && mesesYaPagados % 3 === 0 && (
+                              <label className="flex items-center gap-2 mt-2 cursor-pointer select-none group">
+                                <div className={`relative w-8 h-4 rounded-full border transition-all duration-200 ${mesGratisAsignar ? "bg-yellow-500/20 border-yellow-500/35" : "bg-white/8 border-white/12"}`}>
+                                  <span className={`absolute top-px w-3 h-3 rounded-full transition-all duration-200 ${mesGratisAsignar ? "left-4 bg-yellow-400" : "left-0.5 bg-white/40"}`} />
+                                </div>
+                                <span className="text-[11px] font-semibold text-white/50 group-hover:text-white/75 transition-colors">
+                                  Regalar 1 mes gratis por {mesesYaPagados} meses
+                                </span>
+                                <input type="checkbox" className="sr-only" checked={mesGratisAsignar}
+                                  onChange={(e) => setMesGratisAsignar(e.target.checked)} />
+                              </label>
+                            )}
+                          </div>
+
+                          <div className="col-span-2">
+                            <FieldLabel>PIN de perfil (opcional)</FieldLabel>
+                            <input
+                              className={inputCls}
+                              value={pinPerfil}
+                              onChange={(e) => setPinPerfil(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                              placeholder="Ej: 1234 o 12345"
+                              inputMode="numeric"
+                              maxLength={6}
+                            />
+                            <p className="text-[11px] text-white/30 mt-1.5 font-medium">Solo números, 4 a 6 dígitos. Dejar en blanco para omitir.</p>
                           </div>
                         </div>
                       )}
@@ -958,7 +1066,7 @@ export default function ClientesPage() {
                           <table className="w-full border-collapse">
                             <thead className="bg-black/20 border-b border-white/8">
                               <tr>
-                                {["Servicio", "Cuenta", "Precio", "Día", "Estado", ""].map((h) => (
+                                {["Servicio", "Cuenta", "Precio", "Día", "PIN", ""].map((h) => (
                                   <th key={h} className="text-left px-3 py-2.5 text-[10px] font-extrabold uppercase tracking-widest text-white/35">{h}</th>
                                 ))}
                               </tr>
@@ -976,9 +1084,42 @@ export default function ClientesPage() {
                                     <td className="px-3 py-2.5 text-xs text-white/70 font-bold">{money(s.precio_mensual)}</td>
                                     <td className="px-3 py-2.5 text-xs text-white/55 font-medium">{s.dia_cobro}</td>
                                     <td className="px-3 py-2.5">
-                                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-extrabold ${
-                                        s.estado === "ACTIVA" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/5 border-white/10 text-white/40"
-                                      }`}>{s.estado}</span>
+                                      {editPinId === s.id ? (
+                                        <div className="flex items-center gap-1.5">
+                                          <input
+                                            className="w-20 h-7 px-2 rounded-lg border border-white/10 bg-white/5 text-white/90 text-xs font-mono font-semibold placeholder:text-white/25 outline-none focus:border-sky-500/40 tracking-widest"
+                                            value={editPinValue}
+                                            onChange={(e) => setEditPinValue(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                            placeholder="••••"
+                                            inputMode="numeric"
+                                            maxLength={6}
+                                            autoFocus
+                                          />
+                                          <button type="button" onClick={() => onSavePin(s.id)} disabled={savingPin}
+                                            className="inline-flex items-center h-7 px-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/12 text-emerald-400 font-bold text-xs hover:bg-emerald-500/20 transition-all disabled:opacity-40">
+                                            {savingPin ? <Loader2 className="w-3 h-3 animate-spin" /> : "✓"}
+                                          </button>
+                                          <button type="button" onClick={() => setEditPinId(null)}
+                                            className="inline-flex items-center h-7 px-2 rounded-lg border border-white/8 bg-white/4 text-white/35 text-xs hover:bg-white/8 hover:text-white/60 transition-all">
+                                            ✕
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2">
+                                          {s.pin_perfil ? (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-sky-500/20 bg-sky-500/8 text-sky-300 text-xs font-mono font-bold tracking-widest">
+                                              {s.pin_perfil}
+                                            </span>
+                                          ) : (
+                                            <span className="text-xs text-white/20 font-medium">Sin PIN</span>
+                                          )}
+                                          <button type="button"
+                                            onClick={() => { setEditPinId(s.id); setEditPinValue(s.pin_perfil || ""); }}
+                                            className="inline-flex items-center h-6 px-2 rounded-md border border-white/8 bg-white/4 text-white/35 font-bold text-[10px] hover:bg-white/8 hover:text-white/65 transition-all">
+                                            {s.pin_perfil ? "Editar" : "+ PIN"}
+                                          </button>
+                                        </div>
+                                      )}
                                     </td>
                                     <td className="px-3 py-2.5">
                                       <button type="button" onClick={() => openDeleteConfirm(s)} disabled={deleting}

@@ -173,6 +173,7 @@ router.get("/:id/suscripciones", auth, async (req, res) => {
         s.precio_mensual,
         s.dia_cobro,
         s.estado,
+        s.pin_perfil,
         DATE_FORMAT(s.fecha_inicio, '%Y-%m-%d') AS fecha_inicio,
         DATE_FORMAT(s.proximo_cobro, '%Y-%m-%d') AS proximo_cobro
       FROM suscripciones s

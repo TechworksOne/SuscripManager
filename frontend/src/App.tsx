@@ -7,7 +7,6 @@ import DashboardPage from "./pages/DashboardPage";
 import ServiciosPage from "./pages/ServiciosPage";
 import CuentasPage from "./pages/CuentasPage";
 import ClientesPage from "./pages/ClientesPage";
-import CombosPage from "./pages/CombosPage";
 import CobranzaPage from "./pages/CobranzaPage";
 import HistorialCobrosPage from "./pages/HistorialCobrosPage";
 import NotFound from "./pages/NotFound";
@@ -26,8 +25,6 @@ export default function App() {
           <Route path="/servicios" element={<ServiciosPage />} />
           <Route path="/cuentas" element={<CuentasPage />} />
           <Route path="/clientes" element={<ClientesPage />} />
-          <Route path="/combos" element={<CombosPage />} />
-
           {/* Operación */}
           <Route path="/cobranza" element={<CobranzaPage />} />
 
