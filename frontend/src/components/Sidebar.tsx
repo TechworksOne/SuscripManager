@@ -134,7 +134,7 @@ export default function Sidebar({
               [
                 "sbi",
                 "flex items-center gap-[10px] w-full px-3 py-[9px] rounded-xl",
-                "text-[13px] font-medium leading-none",
+                "text-[15px] font-medium leading-none",
                 "border border-transparent",
                 "no-underline",
                 "transition-colors duration-150",
@@ -146,7 +146,7 @@ export default function Sidebar({
             }
           >
             <span className="sbi-icon flex-shrink-0 flex items-center justify-center">
-              <Icon size={17} strokeWidth={1.8} />
+              <Icon size={18} strokeWidth={1.8} />
             </span>
             {!collapsed && (
               <span className="truncate">{label}</span>
@@ -167,7 +167,7 @@ export default function Sidebar({
           title={collapsed ? "Expandir menú" : "Contraer menú"}
           className={[
             "hidden md:flex items-center gap-[10px] w-full px-3 py-[9px] rounded-xl",
-            "text-[13px] font-medium text-white/25",
+            "text-[15px] font-medium text-white/25",
             "border border-transparent",
             "hover:bg-white/[0.04] hover:text-white/55 hover:border-white/[0.07]",
             "transition-all duration-150 cursor-pointer",
@@ -175,10 +175,10 @@ export default function Sidebar({
           ].join(" ")}
         >
           {collapsed ? (
-            <ChevronRight size={15} strokeWidth={2} />
+            <ChevronRight size={16} strokeWidth={2} />
           ) : (
             <>
-              <ChevronLeft size={15} strokeWidth={2} />
+              <ChevronLeft size={16} strokeWidth={2} />
               <span>Contraer</span>
             </>
           )}
@@ -191,14 +191,14 @@ export default function Sidebar({
           title={collapsed ? "Cerrar sesión" : undefined}
           className={[
             "flex items-center gap-[10px] w-full px-3 py-[9px] rounded-xl",
-            "text-[13px] font-medium text-white/25",
+            "text-[15px] font-medium text-white/25",
             "border border-transparent",
             "hover:bg-red-500/[0.08] hover:text-red-400/80 hover:border-red-500/[0.15]",
             "transition-all duration-150 cursor-pointer",
             collapsed ? "justify-center px-[10px]" : "",
           ].join(" ")}
         >
-          <LogOut size={15} strokeWidth={1.75} />
+          <LogOut size={16} strokeWidth={1.75} />
           {!collapsed && <span>Cerrar sesión</span>}
         </button>
       </div>
