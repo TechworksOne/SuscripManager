@@ -70,13 +70,6 @@ function money(n: any) {
   const v = Number(n ?? 0);
   return v.toLocaleString("es-GT", { style: "currency", currency: "GTQ" });
 }
-function clampInt(v: string, min: number, max: number) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "";
-  const i = Math.trunc(n);
-  if (i < min || i > max) return "";
-  return String(i);
-}
 function pickMinDate(a?: string | null, b?: string | null) {
   if (!a) return b ?? null;
   if (!b) return a ?? null;
@@ -515,14 +508,22 @@ export default function CobranzaPage() {
                   {/* Meses + Método */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block mb-1.5 text-xs font-black tracking-wide text-white/60 uppercase">Meses pagados (1..12)</label>
-                      <input
-                        className="w-full h-11 px-3.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder:text-white/35 outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/15 transition-colors"
-                        value={mesesPagados}
-                        onChange={(e) => setMesesPagados(clampInt(e.target.value, 1, 12) || e.target.value)}
-                        inputMode="numeric"
-                        required
-                      />
+                      <label className="block mb-1.5 text-xs font-black tracking-wide text-white/60 uppercase">Meses pagados</label>
+                      <div className="flex items-center gap-0">
+                        <button
+                          type="button"
+                          onClick={() => setMesesPagados((p) => String(Math.max(1, Number(p) - 1)))}
+                          className="h-11 w-11 flex items-center justify-center rounded-l-xl border border-r-0 border-white/10 bg-white/5 text-white/50 font-bold text-lg hover:bg-white/10 hover:text-white/80 transition-all select-none"
+                        >−</button>
+                        <div className="h-11 flex-1 flex items-center justify-center border-y border-white/10 bg-white/5 text-white font-black text-base min-w-[3rem]">
+                          {months}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setMesesPagados((p) => String(Math.min(12, Number(p) + 1)))}
+                          className="h-11 w-11 flex items-center justify-center rounded-r-xl border border-l-0 border-white/10 bg-white/5 text-white/50 font-bold text-lg hover:bg-white/10 hover:text-white/80 transition-all select-none"
+                        >+</button>
+                      </div>
                       <p className="mt-1.5 text-xs text-white/40">
                         Subtotal mensual: <b className="text-white/70">{money(subtotalSeleccionadoMensual)}</b> · Base:{" "}
                         <b className="text-white/70">{money(baseTotal)}</b>

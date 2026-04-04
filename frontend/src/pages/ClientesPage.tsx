@@ -23,6 +23,9 @@ import { getServicios } from "../api/servicios";
 import type { Cuenta } from "../api/cuentas";
 import { getCuentas } from "../api/cuentas";
 
+import type { CuentaAcceso } from "../api/accesos";
+import { getAccesosByCuenta } from "../api/accesos";
+
 import { apiFetch } from "../api/http";
 import { actualizarPinSuscripcion, crearSuscripcion, eliminarSuscripcion } from "../api/suscripciones";
 
@@ -32,6 +35,22 @@ import "../styles/clientes.css";
 type ToastType = "success" | "error" | "info";
 type Toast = { id: string; type: ToastType; message: string };
 type MetricColor = "blue" | "green" | "slate";
+
+interface PendingSuscripcion {
+  _key: string;
+  servicioId: number;
+  servicioNombre: string;
+  cuentaId: number;
+  cuentaCorreo: string;
+  accesoId: number | "";
+  accesoNombre: string;
+  precioMensual: string;
+  diaCobro: string;
+  diaCobroFecha: string;
+  mesesYaPagados: number;
+  mesGratisAsignar: boolean;
+  pinPerfil: string;
+}
 
 // ── Shared Tailwind strings ───────────────────────────────
 const inputCls =
@@ -140,12 +159,15 @@ export default function ClientesPage() {
 
   // ====== Suscripción (asignar) ======
   const [asignarSuscripcion, setAsignarSuscripcion] = useState(false);
+  const [pendingSuscripciones, setPendingSuscripciones] = useState<PendingSuscripcion[]>([]);
 
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
 
   const [servicioId, setServicioId] = useState<number | "">("");
   const [cuentaId, setCuentaId] = useState<number | "">("");
+  const [accesoId, setAccesoId] = useState<number | "">("");
+  const [accesosDisponibles, setAccesosDisponibles] = useState<CuentaAcceso[]>([]);
 
   const [precioMensual, setPrecioMensual] = useState<string>("");
   const [diaCobro, setDiaCobro] = useState<string>("15");
@@ -386,10 +408,11 @@ export default function ClientesPage() {
     };
   }, [items.length, kpiGlobal.activos, kpiGlobal.inactivos]);
 
-  function resetSuscripcionForm() {
-    setAsignarSuscripcion(false);
+  function resetSuscripcionFormFields() {
     setServicioId("");
     setCuentaId("");
+    setAccesoId("");
+    setAccesosDisponibles([]);
     setPrecioMensual("");
     setDiaCobro("15");
     setDiaCobroFecha("");
@@ -399,6 +422,12 @@ export default function ClientesPage() {
     setPrecioTouched(false);
   }
 
+  function resetSuscripcionForm() {
+    setAsignarSuscripcion(false);
+    setPendingSuscripciones([]);
+    resetSuscripcionFormFields();
+  }
+
   function openCreate() {
     setEditing(null);
     setNombre("");
@@ -406,6 +435,7 @@ export default function ClientesPage() {
     setDireccion("");
     setNotas("");
     setSusItems([]);
+    setPendingSuscripciones([]);
     resetSuscripcionForm();
 
     setModalTab("cliente");
@@ -420,6 +450,7 @@ export default function ClientesPage() {
     setDireccion(String(c.direccion ?? ""));
     setNotas(String(c.notas ?? ""));
     setSusItems([]);
+    setPendingSuscripciones([]);
     resetSuscripcionForm();
 
     setModalTab("cliente");
@@ -458,9 +489,21 @@ export default function ClientesPage() {
     if (!existe) setCuentaId("");
   }, [cuentasDisponibles, cuentaId]);
 
+  // Cargar accesos disponibles cuando cambia la cuenta seleccionada
+  useEffect(() => {
+    setAccesoId("");
+    setAccesosDisponibles([]);
+    if (!cuentaId) return;
+    getAccesosByCuenta(Number(cuentaId))
+      .then((r) => setAccesosDisponibles(r.items.filter((a) => a.estado === "DISPONIBLE")))
+      .catch(() => setAccesosDisponibles([]));
+  }, [cuentaId]); // eslint-disable-line
+
   // Precio sugerido
   useEffect(() => {
     setCuentaId("");
+    setAccesoId("");
+    setAccesosDisponibles([]);
     if (!servicioSeleccionado) return;
 
     const vp = toNum((servicioSeleccionado as any).venta_por_cuenta);
@@ -470,6 +513,42 @@ export default function ClientesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servicioId, (servicioSeleccionado as any)?.id]);
 
+  function onAgregarSuscripcion() {
+    if (!servicioId) { pushToast("error", "Seleccione un servicio"); return; }
+    if (!cuentaId)   { pushToast("error", "Seleccione una cuenta disponible"); return; }
+    const pm = toNum(precioMensual);
+    if (!Number.isFinite(pm) || pm <= 0) { pushToast("error", "Precio mensual inválido"); return; }
+    if (!diaCobroFecha) { pushToast("error", "Seleccione la fecha de cobro"); return; }
+    const pinVal = pinPerfil.trim();
+    if (pinVal !== "" && !/^\d{4,6}$/.test(pinVal)) { pushToast("error", "PIN inválido (4–6 dígitos)"); return; }
+
+    const servicioObj = (servicios as any[]).find((s) => Number(s.id) === Number(servicioId));
+    const cuentaObj   = (cuentasDisponibles as any[]).find((c: any) => Number(c.id) === Number(cuentaId));
+    const accesoObj   = accesosDisponibles.find((a) => Number(a.id) === Number(accesoId));
+
+    setPendingSuscripciones((prev) => [
+      ...prev,
+      {
+        _key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        servicioId:      Number(servicioId),
+        servicioNombre:  servicioObj?.nombre_servicio ?? String(servicioId),
+        cuentaId:        Number(cuentaId),
+        cuentaCorreo:    cuentaObj?.correo ?? String(cuentaId),
+        accesoId,
+        accesoNombre:    accesoObj?.nombre_acceso ?? (accesoId ? `Acceso #${accesoId}` : ""),
+        precioMensual,
+        diaCobro,
+        diaCobroFecha,
+        mesesYaPagados,
+        mesGratisAsignar,
+        pinPerfil: pinVal,
+      },
+    ]);
+
+    resetSuscripcionFormFields();
+    pushToast("success", "Suscripción añadida a la lista");
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (saving) return;
@@ -477,17 +556,6 @@ export default function ClientesPage() {
     if (nombre.trim().length < 2) {
       pushToast("error", "Nombre inválido");
       return;
-    }
-
-    if (asignarSuscripcion) {
-      if (!servicioId) return pushToast("error", "Seleccione un servicio");
-      if (!cuentaId) return pushToast("error", "Seleccione una cuenta disponible");
-
-      const pm = toNum(precioMensual);
-      const dc = toNum(diaCobro);
-      if (!Number.isFinite(pm) || pm <= 0) return pushToast("error", "Precio mensual inválido");
-      if (!Number.isFinite(dc) || dc < 1 || dc > 31)
-        return pushToast("error", "Día de cobro inválido (1..31)");
     }
 
     setSaving(true);
@@ -512,25 +580,26 @@ export default function ClientesPage() {
         pushToast("success", "Cliente actualizado");
       }
 
-      if (asignarSuscripcion) {
-        const pinVal = pinPerfil.trim();
-        if (pinVal !== "" && !/^\d{4,6}$/.test(pinVal))
-          return pushToast("error", "PIN de perfil inválido (solo números, 4 a 6 dígitos)");
-
+      for (const ps of pendingSuscripciones) {
+        const mesesTotal =
+          ps.mesesYaPagados > 0
+            ? ps.mesesYaPagados + (ps.mesGratisAsignar && ps.mesesYaPagados % 3 === 0 ? 1 : 0)
+            : 0;
         await crearSuscripcion({
-          clienteId: clienteIdFinal,
-          cuentaId: Number(cuentaId),
-          precioMensual: Number(precioMensual),
-          diaCobro: Number(diaCobro),
-          fechaInicio: diaCobroFecha || undefined,
-          mesesYaPagados: mesesYaPagados > 0 ? (mesesYaPagados + (mesGratisAsignar && mesesYaPagados % 3 === 0 ? 1 : 0)) : undefined,
-          pin_perfil: pinVal || null,
+          clienteId:       clienteIdFinal,
+          cuentaId:        ps.cuentaId,
+          precioMensual:   Number(ps.precioMensual),
+          diaCobro:        Number(ps.diaCobro),
+          fechaInicio:     ps.diaCobroFecha || undefined,
+          mesesYaPagados:  mesesTotal > 0 ? mesesTotal : undefined,
+          pin_perfil:      ps.pinPerfil || null,
+          acceso_id:       ps.accesoId ? Number(ps.accesoId) : undefined,
         });
+      }
 
-        pushToast("success", "Suscripción asignada");
-
+      if (pendingSuscripciones.length > 0) {
+        pushToast("success", `${pendingSuscripciones.length} suscripción(es) asignada(s)`);
         await loadSuscripciones(clienteIdFinal);
-        resetSuscripcionForm();
       }
 
       await refreshList();
@@ -850,7 +919,7 @@ export default function ClientesPage() {
                   {(["cliente", "asignar", "suscripciones", "extra"] as ModalTab[]).map((tab) => {
                     const meta: Record<ModalTab, { title: string; sub: string }> = {
                       cliente:        { title: "Cliente",        sub: "Nombre y teléfono" },
-                      asignar:        { title: "Asignar",        sub: "Servicio, cobro"   },
+                      asignar:        { title: "Asignar",        sub: pendingSuscripciones.length > 0 ? `${pendingSuscripciones.length} en cola` : "Servicio, cobro"   },
                       suscripciones:  { title: "Suscripciones",  sub: editing ? `${susCount} asignadas` : "Solo en edición" },
                       extra:          { title: "Extra",          sub: "Dirección y notas" },
                     };
@@ -901,16 +970,16 @@ export default function ClientesPage() {
 
                     {/* ASIGNAR */}
                     <section ref={secAsignarRef} className="py-5 mb-1 border-b border-white/8">
-                      <SectionHead title="Asignar suscripción" hint="Crea una suscripción al mismo tiempo." />
+                      <SectionHead title="Asignar suscripción" hint="Añade una o varias antes de guardar." />
 
                       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-white/8 bg-white/5 mb-4">
                         <div>
                           <p className="font-extrabold text-sm text-white/85">Asignar suscripción ahora</p>
-                          <p className="text-xs text-white/40 font-medium mt-0.5">Servicio, cuenta, cobro y precio.</p>
+                          <p className="text-xs text-white/40 font-medium mt-0.5">Rellena el formulario y pulsa <b className="text-white/55">Agregar</b>. Puedes añadir varias.</p>
                         </div>
                         <label className={`relative inline-flex items-center cursor-pointer`}>
                           <input type="checkbox" className="sr-only" checked={asignarSuscripcion}
-                            onChange={(e) => { const v = e.target.checked; setAsignarSuscripcion(v); if (!v) resetSuscripcionForm(); else setPrecioTouched(false); }} />
+                            onChange={(e) => { const v = e.target.checked; setAsignarSuscripcion(v); if (!v) resetSuscripcionFormFields(); else setPrecioTouched(false); }} />
                           <div className={`w-10 h-5 rounded-full border transition-all duration-200 relative ${asignarSuscripcion ? "bg-emerald-500/20 border-emerald-500/30" : "bg-white/10 border-white/12"}`}>
                             <span className={`absolute top-px w-4 h-4 rounded-full bg-white/90 shadow-sm transition-all duration-200 ${asignarSuscripcion ? "left-5" : "left-0.5"}`} />
                           </div>
@@ -923,7 +992,7 @@ export default function ClientesPage() {
                             <FieldLabel>Servicio</FieldLabel>
                             <div className="relative">
                               <select className={selectCls} value={servicioId}
-                                onChange={(e) => setServicioId(e.target.value ? Number(e.target.value) : ("" as any))} required>
+                                onChange={(e) => setServicioId(e.target.value ? Number(e.target.value) : ("" as any))}>
                                 <option value="">Seleccione…</option>
                                 {(servicios as any[]).map((s) => <option key={s.id} value={s.id}>{s.nombre_servicio}</option>)}
                               </select>
@@ -936,7 +1005,7 @@ export default function ClientesPage() {
                             <div className="relative">
                               <select className={selectCls} value={cuentaId}
                                 onChange={(e) => setCuentaId(e.target.value ? Number(e.target.value) : ("" as any))}
-                                disabled={!servicioId || cuentasDisponibles.length === 0} required>
+                                disabled={!servicioId || cuentasDisponibles.length === 0}>
                                 <option value="">{servicioId ? "Seleccione…" : "Primero elija servicio…"}</option>
                                 {cuentasDisponibles.map((cu: any) => (
                                   <option key={cu.id} value={cu.id}>{cu.correo} ({Number(cu.cupo_ocupado)}/{Number(cu.cupo_total)})</option>
@@ -952,11 +1021,44 @@ export default function ClientesPage() {
                             )}
                           </div>
 
+                          {/* Acceso disponible */}
+                          {cuentaId !== "" && (
+                            <div className="col-span-2">
+                              <FieldLabel>Acceso / perfil <span className="text-white/30 font-medium normal-case tracking-normal">(opcional)</span></FieldLabel>
+                              <div className="relative">
+                                <select
+                                  className={selectCls}
+                                  value={accesoId}
+                                  onChange={(e) => setAccesoId(e.target.value ? Number(e.target.value) : "")}
+                                  disabled={accesosDisponibles.length === 0}
+                                >
+                                  <option value="">
+                                    {accesosDisponibles.length === 0
+                                      ? "Sin accesos disponibles registrados"
+                                      : "Sin acceso específico…"}
+                                  </option>
+                                  {accesosDisponibles.map((a) => (
+                                    <option key={a.id} value={a.id}>
+                                      {a.nombre_acceso || `Acceso #${a.id}`}
+                                      {a.correo_acceso ? ` — ${a.correo_acceso}` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+                              </div>
+                              {accesosDisponibles.length === 0 && (
+                                <p className="mt-1.5 text-[11px] text-white/35 font-medium">
+                                  Puedes crear accesos en la sección <b className="text-white/50">Cuentas → Accesos</b>.
+                                </p>
+                              )}
+                            </div>
+                          )}
+
                           <div>
                             <FieldLabel>Precio mensual (Q)</FieldLabel>
                             <input className={inputCls} value={precioMensual}
                               onChange={(e) => { setPrecioMensual(e.target.value); setPrecioTouched(true); }}
-                              placeholder="Ej: 35" inputMode="decimal" required />
+                              placeholder="Ej: 35" inputMode="decimal" />
                             <p className="text-[11px] text-white/30 mt-1.5 font-medium">
                               {servicioSeleccionado
                                 ? `Sugerido: Q ${String((servicioSeleccionado as any).venta_por_cuenta ?? "—")}`
@@ -975,7 +1077,6 @@ export default function ClientesPage() {
                                 setDiaCobroFecha(v);
                                 if (v) setDiaCobro(String(new Date(v + "T00:00:00").getDate()));
                               }}
-                              required
                             />
                             {diaCobro && diaCobroFecha && (
                               <p className="text-[11px] text-white/35 mt-1.5 font-medium">
@@ -1024,8 +1125,8 @@ export default function ClientesPage() {
                             )}
                           </div>
 
-                          <div className="col-span-2">
-                            <FieldLabel>PIN de perfil (opcional)</FieldLabel>
+                          <div>
+                            <FieldLabel>PIN de perfil <span className="text-white/30 font-medium normal-case tracking-normal">(opcional)</span></FieldLabel>
                             <input
                               className={inputCls}
                               value={pinPerfil}
@@ -1036,6 +1137,61 @@ export default function ClientesPage() {
                             />
                             <p className="text-[11px] text-white/30 mt-1.5 font-medium">Solo números, 4 a 6 dígitos. Dejar en blanco para omitir.</p>
                           </div>
+
+                          {/* Agregar button */}
+                          <div className="col-span-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={onAgregarSuscripcion}
+                              className="w-full h-10 rounded-xl border border-indigo-500/35 bg-indigo-500/12 text-indigo-300 font-extrabold text-sm hover:bg-indigo-500/20 hover:border-indigo-500/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Agregar suscripción a la lista
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── Lista de suscripciones pendientes ─── */}
+                      {pendingSuscripciones.length > 0 && (
+                        <div className="mt-4 flex flex-col gap-2">
+                          <p className="text-[11px] font-extrabold uppercase tracking-widest text-white/40 mb-1">
+                            Por asignar al guardar ({pendingSuscripciones.length})
+                          </p>
+                          {pendingSuscripciones.map((ps, idx) => (
+                            <div
+                              key={ps._key}
+                              className="flex items-start gap-3 px-3.5 py-2.5 rounded-xl border border-indigo-500/18 bg-indigo-500/6"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs font-extrabold text-white/85">{ps.servicioNombre}</span>
+                                  <span className="text-white/25">·</span>
+                                  <span className="text-xs text-white/50 font-medium truncate max-w-[160px]">{ps.cuentaCorreo}</span>
+                                  {ps.accesoNombre && (
+                                    <>
+                                      <span className="text-white/25">·</span>
+                                      <span className="text-xs text-sky-400/80 font-semibold">{ps.accesoNombre}</span>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                  <span className="text-[11px] text-emerald-300 font-bold">Q {ps.precioMensual}</span>
+                                  {ps.diaCobroFecha && <span className="text-[11px] text-white/35 font-medium">desde {ps.diaCobroFecha}</span>}
+                                  {ps.mesesYaPagados > 0 && <span className="text-[11px] text-amber-300/80 font-semibold">{ps.mesesYaPagados} mes(es) pagados</span>}
+                                </div>
+                              </div>
+                              <span className="shrink-0 text-[11px] text-white/35 font-bold mt-0.5">#{idx + 1}</span>
+                              <button
+                                type="button"
+                                onClick={() => setPendingSuscripciones((p) => p.filter((x) => x._key !== ps._key))}
+                                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-white/8 bg-white/5 text-white/35 hover:text-red-400 hover:bg-red-500/8 hover:border-red-500/20 transition-all"
+                                title="Quitar de la lista"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </section>
@@ -1165,7 +1321,15 @@ export default function ClientesPage() {
                 <button type="submit" disabled={saving}
                   className="h-10 px-5 rounded-xl bg-sky-500/15 border border-sky-500/25 text-sky-300 font-extrabold text-sm hover:bg-sky-500/20 transition-all duration-150 disabled:opacity-50 inline-flex items-center gap-2">
                   {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  {saving ? "Guardando…" : editing ? "Guardar cambios" : "Crear cliente"}
+                  {saving
+                    ? "Guardando…"
+                    : editing
+                      ? pendingSuscripciones.length > 0
+                        ? `Guardar + ${pendingSuscripciones.length} suscripción(es)`
+                        : "Guardar cambios"
+                      : pendingSuscripciones.length > 0
+                        ? `Crear + ${pendingSuscripciones.length} suscripción(es)`
+                        : "Crear cliente"}
                 </button>
               </div>
             </form>

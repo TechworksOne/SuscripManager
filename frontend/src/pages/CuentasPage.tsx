@@ -9,6 +9,7 @@ import {
   Edit2,
   Eye,
   EyeOff,
+  Layers,
   Loader2,
   Monitor,
   Plus,
@@ -26,6 +27,7 @@ import {
 } from "../api/cuentas";
 import type { Servicio } from "../api/servicios";
 import { getServicios } from "../api/servicios";
+import AccesosPanel from "../components/AccesosPanel";
 import "../styles/cuentas.css";
 
 // ── Types ────────────────────────────────────────────────
@@ -201,6 +203,9 @@ export default function CuentasPage() {
 
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [payingId, setPayingId] = useState<number | null>(null);
+
+  // Panel de accesos — qué cuenta está abierta (null = cerrado)
+  const [accesosCuenta, setAccesosCuenta] = useState<Cuenta | null>(null);
 
   const [revealCorreo, setRevealCorreo] = useState<Record<number, boolean>>({});
   const [revealApp, setRevealApp] = useState<Record<number, boolean>>({});
@@ -880,6 +885,14 @@ export default function CuentasPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setAccesosCuenta(c)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl border border-indigo-500/22 bg-indigo-500/8 text-indigo-300/80 font-bold text-sm hover:bg-indigo-500/14 hover:text-indigo-300 hover:-translate-y-0.5 transition-all duration-200"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    Accesos
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => onMarcarPagado(c)}
                     disabled={payingId === c.id || !pendiente}
                     title={
@@ -910,6 +923,16 @@ export default function CuentasPage() {
             );
           })}
         </div>
+      )}
+
+      {/* ── AccesosPanel ──────────────────────────────── */}
+      {accesosCuenta && (
+        <AccesosPanel
+          cuentaId={accesosCuenta.id}
+          cupoTotal={Number(accesosCuenta.cupo_total ?? 0)}
+          onClose={() => setAccesosCuenta(null)}
+          pushToast={pushToast}
+        />
       )}
 
       {/* ── Modal ────────────────────────────────────── */}

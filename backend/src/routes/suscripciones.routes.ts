@@ -149,6 +149,10 @@ router.post("/", auth, async (req, res) => {
       ? Math.min(mesesYaPagadosRaw, 120)
       : 0;
 
+    // acceso_id: opcional — asigna el acceso al crearse la suscripción
+    const accesoIdRaw = req.body?.acceso_id != null ? asInt(req.body.acceso_id) : null;
+    const accesoId = accesoIdRaw && Number.isFinite(accesoIdRaw) && accesoIdRaw > 0 ? accesoIdRaw : null;
+
     // pin_perfil: opcional, 4-6 dígitos
     const pinPerfilRaw = req.body?.pin_perfil != null ? String(req.body.pin_perfil).trim() : null;
     if (pinPerfilRaw !== null && pinPerfilRaw !== "") {
@@ -254,6 +258,37 @@ router.post("/", auth, async (req, res) => {
       [userId, clienteId, cuentaId, fechaInicio, precioMensual, diaCobro, proximoCobro, pinPerfil]
     );
 
+    const suscripcionId = (ins as any).insertId;
+
+    // 4b) Si se proporcionó acceso_id, vincular atómicamente
+    if (accesoId !== null) {
+      const [acRows] = await conn.query(
+        `SELECT id, cuenta_id, estado
+         FROM cuenta_accesos
+         WHERE id = ? AND cuenta_id = ?
+         LIMIT 1
+         FOR UPDATE`,
+        [accesoId, cuentaId]
+      );
+      const ac = (acRows as any[])[0];
+      if (!ac) {
+        await conn.rollback();
+        return res.status(404).json({ ok: false, error: "Acceso no encontrado para esta cuenta" });
+      }
+      if (ac.estado !== "DISPONIBLE") {
+        await conn.rollback();
+        return res.status(409).json({ ok: false, error: "El acceso seleccionado ya está ocupado" });
+      }
+      await conn.query(
+        `UPDATE suscripciones SET acceso_id = ? WHERE id = ?`,
+        [accesoId, suscripcionId]
+      );
+      await conn.query(
+        `UPDATE cuenta_accesos SET estado = 'OCUPADO', suscripcion_id = ? WHERE id = ?`,
+        [suscripcionId, accesoId]
+      );
+    }
+
     // 5) ✅ Sincronizar cache de cupo_ocupado (ocupadoReal + 1)
     await conn.query(
       `UPDATE cuentas
@@ -266,7 +301,7 @@ router.post("/", auth, async (req, res) => {
 
     return res.status(201).json({
       ok: true,
-      suscripcionId: (ins as any).insertId,
+      suscripcionId,
       proximoCobro,
     });
   } catch (e: any) {

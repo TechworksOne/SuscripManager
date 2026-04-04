@@ -8,6 +8,8 @@ export type CrearSuscripcionPayload = {
   fechaInicio?: string;
   mesesYaPagados?: number;
   pin_perfil?: string | null;
+  /** ID del acceso a vincular automáticamente al crear */
+  acceso_id?: number | null;
 };
 
 export async function crearSuscripcion(payload: CrearSuscripcionPayload) {

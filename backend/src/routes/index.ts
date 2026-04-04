@@ -7,6 +7,7 @@ import cuentasRoutes from "./cuentas.routes";
 import dashboardRoutes from "./dashboard.routes";
 import serviciosRoutes from "./servicios.routes";
 import suscripcionesRoutes from "./suscripciones.routes";
+import accesosRoutes from "./accesos.routes";
 import { auth } from "../middlewares/auth";
 import { triggerDailyReportNow } from "../services/cron.service";
 
@@ -36,5 +37,9 @@ router.use("/cuentas", cuentasRoutes);
 router.use("/suscripciones", suscripcionesRoutes);
 router.use("/cobros", cobrosRoutes);
 router.use("/cobranza", cobrosRoutes);
+
+// ✅ Accesos (sub-rutas viven en el mismo router raíz porque
+//    los paths mezclan /cuentas/:id/accesos y /accesos/:id)
+router.use("/", accesosRoutes);
 
 export default router;
