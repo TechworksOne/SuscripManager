@@ -109,9 +109,10 @@ router.get("/summary", auth, async (req, res) => {
         (SELECT COUNT(*) FROM clientes WHERE usuario_id = ?) AS clientes_count,
         (SELECT COUNT(*) FROM servicios WHERE usuario_id = ?) AS servicios_count,
         (SELECT COUNT(*) FROM cuentas WHERE usuario_id = ?) AS cuentas_count,
-        (SELECT COUNT(*) FROM cuentas WHERE usuario_id = ? AND activa = 1) AS cuentas_activas
+        (SELECT COUNT(*) FROM cuentas WHERE usuario_id = ? AND activa = 1) AS cuentas_activas,
+        (SELECT COALESCE(SUM(costo_mensual), 0) FROM cuentas WHERE usuario_id = ? AND activa = 1) AS costo_cuentas
       `,
-      [userId, userId, userId, userId]
+      [userId, userId, userId, userId, userId]
     );
 
     const cobrosHoy = rowsCobrosHoy?.[0] ?? { total_hoy: 0, count_hoy: 0 };
@@ -122,14 +123,18 @@ router.get("/summary", auth, async (req, res) => {
       servicios_count: 0,
       cuentas_count: 0,
       cuentas_activas: 0,
+      costo_cuentas: 0,
     };
+
+    const costoCuentas = Number(counts.costo_cuentas ?? 0);
+    const cobradoMes   = Number(cobrosMes.total_mes ?? 0);
 
     return res.json({
       range: { today, monthStart },
       kpis: {
         cobrado_hoy: Number(cobrosHoy.total_hoy ?? 0),
         cobros_hoy: Number(cobrosHoy.count_hoy ?? 0),
-        cobrado_mes: Number(cobrosMes.total_mes ?? 0),
+        cobrado_mes: cobradoMes,
         cobros_mes: Number(cobrosMes.count_mes ?? 0),
 
         pendientes: Number(pendientes.pendientes_count ?? 0),
@@ -139,6 +144,9 @@ router.get("/summary", auth, async (req, res) => {
         servicios: Number(counts.servicios_count ?? 0),
         cuentas: Number(counts.cuentas_count ?? 0),
         cuentas_activas: Number(counts.cuentas_activas ?? 0),
+
+        costo_cuentas: costoCuentas,
+        ganancia_mes: cobradoMes - costoCuentas,
       },
       vencen_pronto: rowsVencen ?? [],
     });

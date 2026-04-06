@@ -107,6 +107,7 @@ router.get("/", auth, async (req: any, res) => {
       c.tarjeta_last4,
       c.dia_pago,
       DATE_FORMAT(c.proximo_pago, '%Y-%m-%d') AS proximo_pago,
+      c.costo_mensual,
 
       c.created_at,
       c.updated_at
@@ -150,6 +151,7 @@ router.post("/", auth, async (req: any, res) => {
     tarjeta_nombre,
     tarjeta_last4,
     dia_pago,
+    costo_mensual,
   } = req.body || {};
 
   if (!servicio_id || !correo || !password_correo) {
@@ -196,10 +198,10 @@ router.post("/", auth, async (req: any, res) => {
       `
       INSERT INTO cuentas
         (usuario_id, servicio_id, correo, password_correo, password_app, cupo_total, cupo_ocupado, activa, notas,
-         tarjeta_nombre, tarjeta_last4, dia_pago, proximo_pago)
+         tarjeta_nombre, tarjeta_last4, dia_pago, proximo_pago, costo_mensual)
       VALUES
         (?, ?, ?, ?, ?, ?, 0, 1, ?,
-         ?, ?, ?, ?)
+         ?, ?, ?, ?, ?)
       `,
       [
         usuarioId,
@@ -214,6 +216,7 @@ router.post("/", auth, async (req: any, res) => {
         last4 ? last4.replace(/\D/g, "") : null,
         dia,
         proximoPago,
+        costo_mensual != null ? Number(costo_mensual) : 0,
       ]
     );
 
@@ -263,6 +266,7 @@ router.put("/:id", auth, async (req: any, res) => {
     tarjeta_nombre,
     tarjeta_last4,
     dia_pago,
+    costo_mensual,
   } = req.body || {};
 
   if (!Number.isFinite(id)) return res.status(400).json({ message: "ID inválido" });
@@ -319,7 +323,8 @@ router.put("/:id", auth, async (req: any, res) => {
         tarjeta_nombre = ?,
         tarjeta_last4 = ?,
         dia_pago = ?,
-        proximo_pago = ?
+        proximo_pago = ?,
+        costo_mensual = ?
       WHERE id = ? AND usuario_id = ?
       `,
       [
@@ -334,6 +339,7 @@ router.put("/:id", auth, async (req: any, res) => {
         last4 ? last4.replace(/\D/g, "") : null,
         dia,
         proximoPago,
+        costo_mensual != null ? Number(costo_mensual) : 0,
 
         id,
         usuarioId,

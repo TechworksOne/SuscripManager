@@ -200,6 +200,7 @@ export default function CuentasPage() {
   const [tarjetaLast4, setTarjetaLast4] = useState("");
   const [diaPago, setDiaPago] = useState("");
   const [diaPagoFecha, setDiaPagoFecha] = useState("");
+  const [costoMensual, setCostoMensual] = useState("");
 
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [payingId, setPayingId] = useState<number | null>(null);
@@ -343,6 +344,7 @@ export default function CuentasPage() {
     setTarjetaLast4("");
     setDiaPago("");
     setDiaPagoFecha("");
+    setCostoMensual("");
   }
 
   function openCreate() {
@@ -368,6 +370,7 @@ export default function CuentasPage() {
     const dpStr = c.dia_pago ? String(c.dia_pago) : "";
     setDiaPago(dpStr);
     setDiaPagoFecha(""); // fecha picker no se pre-rellena en edición (solo extrae el día)
+    setCostoMensual(c.costo_mensual != null ? String(c.costo_mensual) : "");
 
     setModalTab("cuenta");
     setOpen(true);
@@ -421,6 +424,7 @@ export default function CuentasPage() {
         tarjeta_nombre: tarjetaNombre.trim() ? tarjetaNombre.trim() : null,
         tarjeta_last4: last4 ? last4 : null,
         dia_pago: day,
+        costo_mensual: costoMensual !== "" ? Number(costoMensual) : 0,
       };
 
       if (!editing) {
@@ -835,7 +839,7 @@ export default function CuentasPage() {
                   </div>
 
                   {/* Mini stat cards */}
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2.5">
                     <div className="rounded-xl border border-white/8 bg-white/5 p-3">
                       <p className="text-[10px] font-extrabold uppercase tracking-widest text-white/35 mb-1.5">
                         Cupos
@@ -863,6 +867,16 @@ export default function CuentasPage() {
                         {tname || "Sin tarjeta"}
                         {last4 ? ` · ****${last4}` : ""}
                       </p>
+                    </div>
+
+                    <div className="rounded-xl border border-amber-500/15 bg-amber-500/5 p-3">
+                      <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400/70 mb-1.5">
+                        Costo
+                      </p>
+                      <p className="text-xl font-black text-amber-300/90 tracking-tight">
+                        {Number(c.costo_mensual ?? 0).toLocaleString("es-GT", { style: "currency", currency: "GTQ" })}
+                      </p>
+                      <p className="text-xs text-white/35 font-semibold mt-1">por mes</p>
                     </div>
                   </div>
 
@@ -1155,13 +1169,15 @@ export default function CuentasPage() {
                           )}
                         </div>
                         <div>
-                          <FieldLabel>Referencia interna</FieldLabel>
+                          <FieldLabel>Costo mensual</FieldLabel>
                           <input
                             className={inputCls}
-                            value={notas}
-                            onChange={(e) => setNotas(e.target.value)}
-                            placeholder="Cuenta principal, etc."
+                            value={costoMensual}
+                            onChange={(e) => setCostoMensual(e.target.value.replace(/[^0-9.]/g, ""))}
+                            inputMode="decimal"
+                            placeholder="0.00"
                           />
+                          <p className="text-[11px] text-white/30 mt-1.5 font-medium">Lo que pagás por la cuenta.</p>
                         </div>
                       </div>
                     </section>

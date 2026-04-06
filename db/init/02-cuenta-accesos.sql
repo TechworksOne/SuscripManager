@@ -175,3 +175,27 @@ DELIMITER ;
 
 CALL _migrar_accesos_existentes();
 DROP PROCEDURE IF EXISTS _migrar_accesos_existentes;
+
+-- ── 4. Columna costo_mensual en cuentas (idempotente) ──────────────────────
+DROP PROCEDURE IF EXISTS _add_col_costo_mensual;
+
+DELIMITER $$
+
+CREATE PROCEDURE _add_col_costo_mensual()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM   information_schema.COLUMNS
+    WHERE  TABLE_SCHEMA = DATABASE()
+      AND  TABLE_NAME   = 'cuentas'
+      AND  COLUMN_NAME  = 'costo_mensual'
+  ) THEN
+    ALTER TABLE cuentas
+      ADD COLUMN costo_mensual DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER proximo_pago;
+  END IF;
+END$$
+
+DELIMITER ;
+
+CALL _add_col_costo_mensual();
+DROP PROCEDURE IF EXISTS _add_col_costo_mensual;

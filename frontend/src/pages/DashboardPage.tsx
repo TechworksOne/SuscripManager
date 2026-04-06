@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   DollarSign, TrendingUp, BarChart3, Clock, AlertTriangle,
   CalendarClock, ArrowRight, RefreshCw, CheckCircle2, XCircle,
-  Info, Banknote,
+  Info, Banknote, TrendingDown,
 } from "lucide-react";
 import { apiFetch } from "../api/http";
 
@@ -194,20 +194,23 @@ export default function DashboardPage() {
   const [pendientes, setPendientes] = useState<ParaCobrarItem[]>([]);
   const [cobrosMes, setCobrosMes]   = useState<CobroItem[]>([]);
   const [cobrosHoy, setCobrosHoy]   = useState<CobroItem[]>([]);
+  const [costoCuentas, setCostoCuentas] = useState(0);
 
   async function loadAll() {
     setLoading(true);
     try {
       const hoy = todayISO();
       const { from, to } = monthRangeISO();
-      const [rPend, rMes, rHoy] = await Promise.all([
+      const [rPend, rMes, rHoy, rSummary] = await Promise.all([
         apiFetch<{ items: ParaCobrarItem[] }>("/cobros/para-cobrar"),
         apiFetch<{ items: CobroItem[] }>(`/cobros?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
         apiFetch<{ items: CobroItem[] }>(`/cobros?from=${encodeURIComponent(hoy)}&to=${encodeURIComponent(hoy)}`),
+        apiFetch<{ kpis: { costo_cuentas: number } }>("/dashboard/summary"),
       ]);
       setPendientes(rPend.items ?? []);
       setCobrosMes(rMes.items ?? []);
       setCobrosHoy(rHoy.items ?? []);
+      setCostoCuentas(Number(rSummary?.kpis?.costo_cuentas ?? 0));
     } catch (e: any) {
       pushToast("error", e?.message ?? "No se pudo cargar el dashboard");
       setPendientes([]); setCobrosMes([]); setCobrosHoy([]);
@@ -225,8 +228,9 @@ export default function DashboardPage() {
     const vencen7      = pendientes.filter(p => { const a = Number(p.atraso_dias ?? 0); return a < 0 && Math.abs(a) <= 7; }).length;
     const mrrEstimado  = pendientes.reduce((a, p) => a + Number(p.precio_mensual ?? 0), 0);
     const clientesUnicos = new Set(pendientes.map(p => p.cliente_id)).size;
-    return { totalHoy, totalMes, atrasados, vencen7, mrrEstimado, clientesUnicos, pendientes: pendientes.length };
-  }, [cobrosHoy, cobrosMes, pendientes]);
+    const ganancia     = totalMes - costoCuentas;
+    return { totalHoy, totalMes, atrasados, vencen7, mrrEstimado, clientesUnicos, pendientes: pendientes.length, ganancia };
+  }, [cobrosHoy, cobrosMes, pendientes, costoCuentas]);
 
   const topPendientes = useMemo(() =>
     [...pendientes].sort((a, b) => {
@@ -241,13 +245,15 @@ export default function DashboardPage() {
   [cobrosMes]);
 
   // Count-up — must be called unconditionally (Rules of Hooks)
-  const ready   = !loading;
-  const cHoy    = useCountUp(kpis.totalHoy,     ready);
-  const cMes    = useCountUp(kpis.totalMes,     ready);
-  const cMrr    = useCountUp(kpis.mrrEstimado,  ready);
-  const cPend   = useCountUp(kpis.pendientes,   ready);
-  const cAtras  = useCountUp(kpis.atrasados,    ready);
-  const cVenc   = useCountUp(kpis.vencen7,      ready);
+  const ready      = !loading;
+  const cHoy       = useCountUp(kpis.totalHoy,     ready);
+  const cMes       = useCountUp(kpis.totalMes,     ready);
+  const cMrr       = useCountUp(kpis.mrrEstimado,  ready);
+  const cPend      = useCountUp(kpis.pendientes,   ready);
+  const cAtras     = useCountUp(kpis.atrasados,    ready);
+  const cVenc      = useCountUp(kpis.vencen7,      ready);
+  const cCosto     = useCountUp(costoCuentas,      ready);
+  const cGanancia  = useCountUp(Math.max(0, kpis.ganancia), ready);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white/90">
@@ -306,7 +312,7 @@ export default function DashboardPage() {
         {/* ── KPI grid ───────────────────────────────────────────────── */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-            {[...Array(6)].map((_, i) => (
+            {[...Array(8)].map((_, i) => (
               <Skeleton key={i} className={`h-[108px] ${i === 0 ? "sm:col-span-2 lg:col-span-2" : ""}`} />
             ))}
           </div>
@@ -338,6 +344,28 @@ export default function DashboardPage() {
               borderClass="border-white/[0.07]" glowClass="shadow-blue-500/[0.05]"
               badge={`${cobrosMes.length} cobros`}
               badgeClass="bg-blue-500/10 border-blue-500/15 text-blue-400/75" />
+
+            {/* Costo cuentas */}
+            <KpiCard label="Costo cuentas" value={money(cCosto)} sub="Inversión mensual"
+              icon={TrendingDown}
+              iconClass="bg-amber-500/15 border-amber-500/20 text-amber-400"
+              borderClass="border-white/[0.07]" glowClass="shadow-amber-500/[0.05]"
+              badge="Cuentas activas"
+              badgeClass="bg-amber-500/10 border-amber-500/15 text-amber-400/75" />
+
+            {/* Ganancia */}
+            <KpiCard
+              label="Ganancia del mes"
+              value={money(cGanancia)}
+              sub={kpis.ganancia < 0 ? "Pérdida" : "Cobrado − costo"}
+              icon={TrendingUp}
+              iconClass={kpis.ganancia >= 0 ? "bg-emerald-500/15 border-emerald-500/20 text-emerald-400" : "bg-red-500/15 border-red-500/20 text-red-400"}
+              borderClass={kpis.ganancia >= 0 ? "border-emerald-500/15" : "border-red-500/20"}
+              glowClass={kpis.ganancia >= 0 ? "shadow-emerald-500/[0.07]" : "shadow-red-500/[0.07]"}
+              badge={kpis.ganancia >= 0 ? "Positivo" : "Negativo"}
+              badgeClass={kpis.ganancia >= 0
+                ? "bg-emerald-500/10 border-emerald-500/15 text-emerald-400/85"
+                : "bg-red-500/10 border-red-500/15 text-red-400/85"} />
 
             {/* MRR */}
             <KpiCard label="MRR estimado" value={money(cMrr)} sub="Ingresos recurrentes"

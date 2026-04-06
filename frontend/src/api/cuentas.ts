@@ -22,6 +22,7 @@ export interface Cuenta {
   tarjeta_last4: string | null; // string para preservar ceros
   dia_pago: number | null;      // 1-31
   proximo_pago: string | null;  // "YYYY-MM-DD" (ya sin ISO Z)
+  costo_mensual: number;        // costo invertido en la cuenta
 
   created_at: string;
   updated_at: string;
@@ -42,6 +43,7 @@ export interface CrearCuentaPayload {
   tarjeta_nombre?: string | null;
   tarjeta_last4?: string | null;
   dia_pago?: number | null;
+  costo_mensual?: number | null;
 }
 
 export type ActualizarCuentaPayload = CrearCuentaPayload;
