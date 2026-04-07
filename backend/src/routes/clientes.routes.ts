@@ -44,10 +44,10 @@ router.get("/", auth, async (req, res) => {
     if (activoParam === "1") where.push("c.activo = 1");
     else if (activoParam === "0") where.push("c.activo = 0");
 
-    // Nombre
+    // Nombre o teléfono
     if (nombre) {
-      where.push("c.nombre LIKE ?");
-      params.push(`%${nombre}%`);
+      where.push("(c.nombre LIKE ? OR c.telefono LIKE ?)");
+      params.push(`%${nombre}%`, `%${nombre}%`);
     }
 
     const useSusFilters =
