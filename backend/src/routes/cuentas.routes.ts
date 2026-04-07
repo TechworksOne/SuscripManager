@@ -221,7 +221,21 @@ router.post("/", auth, async (req: any, res) => {
     );
 
     // @ts-ignore
-    return res.status(201).json({ ok: true, id: result.insertId });
+    const cuentaId = result.insertId;
+
+    // ── Auto-crear accesos según cupo_total ─────────────────────────
+    const accesosInsert: any[] = [];
+    for (let i = 1; i <= cupo; i++) {
+      accesosInsert.push([cuentaId, `Perfil ${i}`, "perfil", "DISPONIBLE"]);
+    }
+    if (accesosInsert.length > 0) {
+      await pool.query(
+        `INSERT INTO cuenta_accesos (cuenta_id, nombre_acceso, tipo_acceso, estado) VALUES ?`,
+        [accesosInsert]
+      );
+    }
+
+    return res.status(201).json({ ok: true, id: cuentaId });
   } catch (err: any) {
     if (err?.code === "ER_DUP_ENTRY" || err?.errno === 1062) {
       const [rows] = await pool.query(
@@ -345,6 +359,24 @@ router.put("/:id", auth, async (req: any, res) => {
         usuarioId,
       ]
     );
+
+    // ── Ajustar accesos si aumentó el cupo_total ─────────────────
+    const [accRows] = await pool.query(
+      `SELECT COUNT(*) AS total FROM cuenta_accesos WHERE cuenta_id = ?`,
+      [id]
+    );
+    const existingCount = Number((accRows as any[])[0]?.total ?? 0);
+    const toCreate = cupo - existingCount;
+    if (toCreate > 0) {
+      const accesosInsert: any[] = [];
+      for (let i = existingCount + 1; i <= cupo; i++) {
+        accesosInsert.push([id, `Perfil ${i}`, "perfil", "DISPONIBLE"]);
+      }
+      await pool.query(
+        `INSERT INTO cuenta_accesos (cuenta_id, nombre_acceso, tipo_acceso, estado) VALUES ?`,
+        [accesosInsert]
+      );
+    }
 
     return res.json({ ok: true });
   } catch (err: any) {

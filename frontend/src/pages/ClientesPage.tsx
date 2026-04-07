@@ -195,6 +195,9 @@ export default function ClientesPage() {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [susToDelete, setSusToDelete] = useState<any>(null);
 
+  // Guardar suscripción inmediata (modo edición)
+  const [savingAgregar, setSavingAgregar] = useState(false);
+
   // ✅ Abort controllers
   const abortListRef = useRef<AbortController | null>(null);
   const abortKpiRef = useRef<AbortController | null>(null);
@@ -513,7 +516,8 @@ export default function ClientesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servicioId, (servicioSeleccionado as any)?.id]);
 
-  function onAgregarSuscripcion() {
+  async function onAgregarSuscripcion() {
+    if (savingAgregar) return;
     if (!servicioId) { pushToast("error", "Seleccione un servicio"); return; }
     if (!cuentaId)   { pushToast("error", "Seleccione una cuenta disponible"); return; }
     const pm = toNum(precioMensual);
@@ -522,6 +526,38 @@ export default function ClientesPage() {
     const pinVal = pinPerfil.trim();
     if (pinVal !== "" && !/^\d{4,6}$/.test(pinVal)) { pushToast("error", "PIN inválido (4–6 dígitos)"); return; }
 
+    const mesesTotal =
+      mesesYaPagados > 0
+        ? mesesYaPagados + (mesGratisAsignar && mesesYaPagados % 3 === 0 ? 1 : 0)
+        : 0;
+
+    // ── Modo EDICIÓN: guardar directo a la DB ──────────────
+    if (editing) {
+      setSavingAgregar(true);
+      try {
+        await crearSuscripcion({
+          clienteId:      editing.id,
+          cuentaId:       Number(cuentaId),
+          precioMensual:  pm,
+          diaCobro:       Number(diaCobro),
+          fechaInicio:    diaCobroFecha || undefined,
+          mesesYaPagados: mesesTotal > 0 ? mesesTotal : undefined,
+          pin_perfil:     pinVal || null,
+          acceso_id:      accesoId ? Number(accesoId) : undefined,
+        });
+        resetSuscripcionFormFields();
+        pushToast("success", "Suscripción asignada");
+        await loadSuscripciones(editing.id);
+        await refreshList();
+      } catch (err: any) {
+        pushToast("error", err?.message || "No se pudo asignar la suscripción");
+      } finally {
+        setSavingAgregar(false);
+      }
+      return;
+    }
+
+    // ── Modo CREACIÓN: encolar para guardar con el cliente ─
     const servicioObj = (servicios as any[]).find((s) => Number(s.id) === Number(servicioId));
     const cuentaObj   = (cuentasDisponibles as any[]).find((c: any) => Number(c.id) === Number(cuentaId));
     const accesoObj   = accesosDisponibles.find((a) => Number(a.id) === Number(accesoId));
@@ -1067,7 +1103,7 @@ export default function ClientesPage() {
                           </div>
 
                           <div>
-                            <FieldLabel>Día de cobro</FieldLabel>
+                            <FieldLabel>Fecha inicio de cobro</FieldLabel>
                             <input
                               type="date"
                               className={inputCls + " scheme-dark"}
@@ -1081,6 +1117,9 @@ export default function ClientesPage() {
                             {diaCobro && diaCobroFecha && (
                               <p className="text-[11px] text-white/35 mt-1.5 font-medium">
                                 Cobro cada día <span className="text-white/60 font-bold">{diaCobro}</span> del mes
+                                {diaCobroFecha < new Date().toISOString().slice(0, 10) && (
+                                  <span className="ml-1.5 text-amber-400/80 font-semibold">(atrasado)</span>
+                                )}
                               </p>
                             )}
                           </div>
@@ -1143,10 +1182,11 @@ export default function ClientesPage() {
                             <button
                               type="button"
                               onClick={onAgregarSuscripcion}
-                              className="w-full h-10 rounded-xl border border-indigo-500/35 bg-indigo-500/12 text-indigo-300 font-extrabold text-sm hover:bg-indigo-500/20 hover:border-indigo-500/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
+                              disabled={savingAgregar}
+                              className="w-full h-10 rounded-xl border border-indigo-500/35 bg-indigo-500/12 text-indigo-300 font-extrabold text-sm hover:bg-indigo-500/20 hover:border-indigo-500/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                             >
-                              <Plus className="w-4 h-4" />
-                              Agregar suscripción a la lista
+                              {savingAgregar ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                              {savingAgregar ? "Guardando…" : editing ? "Asignar suscripción" : "Agregar suscripción a la lista"}
                             </button>
                           </div>
                         </div>

@@ -244,10 +244,11 @@ router.post("/", auth, async (req, res) => {
       });
     }
 
-    const proximoCobroBase = calcProximoCobro(diaCobro, new Date());
+    // proximo_cobro: se parte de fechaInicio (puede ser pasado si el cliente debe desde antes).
+    // Si hay mesesYaPagados, se avanza desde fechaInicio esa cantidad de meses.
     const proximoCobro = mesesYaPagados > 0
-      ? addMonthsToDate(proximoCobroBase, mesesYaPagados, diaCobro)
-      : proximoCobroBase;
+      ? addMonthsToDate(fechaInicio, mesesYaPagados, diaCobro)
+      : fechaInicio;
 
     // 4) Crear suscripción
     const [ins] = await conn.query(
@@ -351,6 +352,14 @@ router.delete("/:id", auth, async (req, res) => {
     }
 
     const cuentaId = Number(s.cuenta_id);
+
+    // Liberar el acceso vinculado antes de borrar la suscripción
+    await conn.query(
+      `UPDATE cuenta_accesos
+       SET estado = 'DISPONIBLE', suscripcion_id = NULL
+       WHERE suscripcion_id = ?`,
+      [id]
+    );
 
     await conn.query(`DELETE FROM suscripciones WHERE id = ? AND usuario_id = ?`, [id, userId]);
 
