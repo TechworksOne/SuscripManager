@@ -309,7 +309,6 @@ router.post("/lote", auth, async (req, res) => {
         SELECT
           CASE
             WHEN proximo_cobro IS NULL THEN CURDATE()
-            WHEN proximo_cobro < CURDATE() THEN CURDATE()
             ELSE proximo_cobro
           END AS base_fecha
         FROM suscripciones
@@ -456,7 +455,6 @@ router.post("/", auth, async (req, res) => {
       SELECT
         CASE
           WHEN proximo_cobro IS NULL THEN CURDATE()
-          WHEN proximo_cobro < CURDATE() THEN CURDATE()
           ELSE proximo_cobro
         END AS base_fecha
       FROM suscripciones
