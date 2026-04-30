@@ -627,11 +627,12 @@ export default function CobranzaPage() {
     const digits = c.telefono.replace(/\D/g, "");
     const phone = digits.startsWith("502") ? digits : "502" + digits;
     const atraso = Math.max(0, c.atraso_max);
-    const meses = Math.max(1, Math.ceil(atraso / 30));
+    // Pago por adelantado: cualquier fracción de mes cuenta como mes completo
+    const meses = atraso > 0 ? Math.ceil(atraso / 30) : 1;
     const total = c.total_mensual * meses;
     const msg =
       atraso > 0
-        ? `Hola ${c.cliente_nombre}, le saludamos. Le informamos que tiene un saldo pendiente de ${money(total)} (${meses} mes${meses !== 1 ? "es" : ""} — ${atraso} día${atraso !== 1 ? "s" : ""} de atraso). Por favor, realice su pago a la brevedad. ¡Muchas gracias!`
+        ? `Hola ${c.cliente_nombre}, le saludamos. Le informamos que tiene un saldo pendiente de ${money(total)} correspondiente a ${meses} mes${meses !== 1 ? "es" : ""} sin pagar. Por favor, realice su pago a la brevedad. ¡Muchas gracias!`
         : `Hola ${c.cliente_nombre}, le saludamos. Le recordamos que su pago de ${money(total)} vence hoy. ¡Muchas gracias!`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   }
@@ -847,7 +848,7 @@ export default function CobranzaPage() {
                 <th className="px-4 py-3 text-left text-xs font-black tracking-widest text-white/45 uppercase">Cliente</th>
                 <th className="px-4 py-3 text-left text-xs font-black tracking-widest text-white/45 uppercase hidden sm:table-cell">Teléfono</th>
                 <th className="px-4 py-3 text-left text-xs font-black tracking-widest text-white/45 uppercase">Servicios</th>
-                <th className="px-4 py-3 text-right text-xs font-black tracking-widest text-white/45 uppercase hidden md:table-cell">Total mensual</th>
+                <th className="px-4 py-3 text-right text-xs font-black tracking-widest text-white/45 uppercase hidden md:table-cell">Total</th>
                 <th className="px-4 py-3 text-left text-xs font-black tracking-widest text-white/45 uppercase hidden lg:table-cell">Próximo cobro</th>
                 <th className="px-4 py-3 text-left text-xs font-black tracking-widest text-white/45 uppercase">Estado</th>
                 <th className="px-4 py-3 text-right text-xs font-black tracking-widest text-white/45 uppercase">Acción</th>
@@ -900,9 +901,19 @@ export default function CobranzaPage() {
                       </span>
                     </td>
 
-                    {/* Total mensual */}
+                    {/* Total adeudado */}
                     <td className="px-4 py-3.5 text-right hidden md:table-cell">
-                      <span className="text-sm font-black text-emerald-300">{money(c.total_mensual)}</span>
+                      {(() => {
+                        const meses = c.atraso_max > 0 ? Math.ceil(c.atraso_max / 30) : 1;
+                        return (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="text-sm font-black text-emerald-300">{money(c.total_mensual * meses)}</span>
+                            {meses > 1 && (
+                              <span className="text-[10px] text-white/40 font-semibold">{money(c.total_mensual)} × {meses} meses</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Próximo cobro */}
