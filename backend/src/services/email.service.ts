@@ -44,12 +44,17 @@ function buildHtml(
       const dias = Number(r.atraso_dias ?? 0);
       const color = atrasoColor(dias);
       const label = atrasoLabel(dias);
+      const meses = dias > 0 ? Math.ceil(dias / 30) : 1;
+      const total = r.precio_mensual * meses;
       return `
         <tr style="border-bottom:1px solid #1e2d3d;">
           <td style="padding:10px 14px;font-size:13px;color:#e2e8f0;">${r.cliente_nombre}</td>
           <td style="padding:10px 14px;font-size:13px;color:#94a3b8;">${r.servicio}</td>
           <td style="padding:10px 14px;font-size:12px;color:#64748b;">${r.cuenta_correo}</td>
-          <td style="padding:10px 14px;font-size:13px;color:#34d399;font-weight:700;text-align:right;">${money(r.precio_mensual)}</td>
+          <td style="padding:10px 14px;font-size:13px;color:#34d399;font-weight:700;text-align:right;">
+            ${money(total)}
+            ${meses > 1 ? `<div style=\"font-size:10px;color:#64748b;font-weight:400;\">${money(r.precio_mensual)} × ${meses} meses</div>` : ""}
+          </td>
           <td style="padding:10px 14px;text-align:center;">
             <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:${color}22;color:${color};border:1px solid ${color}55;">
               ${label}
@@ -106,7 +111,8 @@ function buildHtml(
       </div>
     </div>
 
-    <!-- Table -->
+    <!-- Cuentas por pagar -->
+    <h2 style="margin:32px 0 10px 0;font-size:17px;font-weight:900;color:#f8fafc;letter-spacing:.01em;">Cuentas por pagar</h2>
     ${
       rows.length === 0
         ? `<div style="padding:32px;text-align:center;border-radius:14px;border:1px solid #1e2d3d;background:#0d1829;color:#64748b;font-size:13px;">
