@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
 
 export interface PendingRow {
   cliente_nombre: string;
@@ -142,23 +142,16 @@ function buildHtml(
 </html>`;
 }
 
-let transporter: nodemailer.Transporter | null = null;
+let sgInitialized = false;
 
-function getTransporter(): nodemailer.Transporter {
-  if (!transporter) {
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-
-    if (!user || !pass || pass === "tu_app_password_aqui") {
-      throw new Error("SMTP_USER / SMTP_PASS no configurados en .env");
-    }
-
-    transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: { user, pass },
-    });
+function initSg(): void {
+  if (sgInitialized) return;
+  const key = process.env.SENDGRID_API_KEY;
+  if (!key || key === "SG.xxxxxxxxxxxxxxxxxxxxxxxx") {
+    throw new Error("SENDGRID_API_KEY no configurada en .env");
   }
-  return transporter;
+  sgMail.setApiKey(key);
+  sgInitialized = true;
 }
 
 export async function sendDailyReport(
@@ -167,8 +160,9 @@ export async function sendDailyReport(
   fecha: string,
   rows: PendingRow[]
 ): Promise<void> {
-  const t = getTransporter();
+  initSg();
   const html = buildHtml(adminNombre, adminEmail, fecha, rows);
+  const from = process.env.SENDGRID_FROM || process.env.SENDGRID_FROM_EMAIL || adminEmail;
 
   const atrasados = rows.filter((r) => Number(r.atraso_dias) > 0).length;
   const subject =
@@ -178,8 +172,8 @@ export async function sendDailyReport(
       ? `🔴 SubsManager — ${rows.length} pendientes, ${atrasados} atrasados (${fecha})`
       : `📋 SubsManager — ${rows.length} cobros pendientes (${fecha})`;
 
-  await t.sendMail({
-    from: `"SubsManager" <${process.env.SMTP_USER}>`,
+  await sgMail.send({
+    from: { name: "SubsManager", email: from },
     to: adminEmail,
     subject,
     html,
